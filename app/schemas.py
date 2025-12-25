@@ -1,0 +1,118 @@
+from pydantic import BaseModel, Field, field_validator
+from datetime import date, datetime
+from decimal import Decimal
+from typing import Optional
+
+# Cloth Variety Schemas
+class ClothVarietyBase(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = None
+
+class ClothVarietyCreate(ClothVarietyBase):
+    pass
+
+class ClothVarietyResponse(ClothVarietyBase):
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+# Supplier Inventory Schemas
+class SupplierInventoryBase(BaseModel):
+    supplier_name: str = Field(..., min_length=1, max_length=100)
+    variety_id: int
+    quantity: int = Field(..., gt=0)
+    price_per_item: Decimal = Field(..., gt=0, decimal_places=2)
+    supply_date: date
+
+class SupplierInventoryCreate(SupplierInventoryBase):
+    pass
+
+class SupplierInventoryResponse(SupplierInventoryBase):
+    id: int
+    total_amount: Decimal
+    created_at: datetime
+    variety: ClothVarietyResponse
+    
+    class Config:
+        from_attributes = True
+
+# Supplier Return Schemas
+class SupplierReturnBase(BaseModel):
+    supplier_name: str = Field(..., min_length=1, max_length=100)
+    variety_id: int
+    quantity: int = Field(..., gt=0)
+    price_per_item: Decimal = Field(..., gt=0, decimal_places=2)
+    return_date: date
+    reason: Optional[str] = None
+
+class SupplierReturnCreate(SupplierReturnBase):
+    pass
+
+class SupplierReturnResponse(SupplierReturnBase):
+    id: int
+    total_amount: Decimal
+    created_at: datetime
+    variety: ClothVarietyResponse
+    
+    class Config:
+        from_attributes = True
+
+# Sale Schemas
+class SaleBase(BaseModel):
+    salesperson_name: str = Field(..., min_length=1, max_length=100)
+    variety_id: int
+    quantity: int = Field(..., gt=0)
+    selling_price: Decimal = Field(..., gt=0, decimal_places=2)
+    cost_price: Decimal = Field(..., gt=0, decimal_places=2)
+    sale_date: date
+    
+    @field_validator('selling_price')
+    @classmethod
+    def validate_selling_price(cls, v, info):
+        if 'cost_price' in info.data and v < info.data['cost_price']:
+            raise ValueError('Selling price should not be less than cost price')
+        return v
+
+class SaleCreate(SaleBase):
+    pass
+
+class SaleResponse(SaleBase):
+    id: int
+    profit: Decimal
+    sale_timestamp: datetime
+    variety: ClothVarietyResponse
+    
+    class Config:
+        from_attributes = True
+
+# Summary Schemas
+class DailySupplierSummary(BaseModel):
+    date: date
+    total_supply: Decimal
+    total_returns: Decimal
+    net_amount: Decimal
+    supply_count: int
+    return_count: int
+
+class DailySalesSummary(BaseModel):
+    date: date
+    total_sales_amount: Decimal
+    total_profit: Decimal
+    total_quantity_sold: int
+    sales_count: int
+
+class DailyReport(BaseModel):
+    date: date
+    supplier_summary: DailySupplierSummary
+    sales_summary: DailySalesSummary
+    net_inventory_value: Decimal
+
+class SalespersonSummary(BaseModel):
+    salesperson_name: str
+    date: date
+    total_sales: Decimal
+    total_profit: Decimal
+    total_items_sold: int
+    sales_count: int
