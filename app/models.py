@@ -8,7 +8,6 @@ class ClothVariety(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False, unique=True)
-    # unit = Column(String(20), nullable=False, default='pieces')
     description = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -86,7 +85,7 @@ class Sale(Base):
         nullable=False
     )
 
-    quantity = Column(Integer, nullable=False)
+    quantity = Column(DECIMAL(10, 2), nullable=False)
     selling_price = Column(DECIMAL(10, 2), nullable=False)
     cost_price = Column(DECIMAL(10, 2), nullable=False)
     profit = Column(DECIMAL(10, 2), nullable=False)

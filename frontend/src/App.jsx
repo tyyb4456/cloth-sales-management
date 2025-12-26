@@ -7,6 +7,9 @@ import SupplierInventory from './pages/SupplierInventory';
 import SupplierReturns from './pages/SupplierReturns';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
+import AnalyticsDashboard from './pages/AnalyticsDashboard'
+// import PredictionsDashboard from './pages/PredictionsDashboard';
+// import ProductDemandPredictor from './pages/ProductDemandPredictor';
 
 function Navigation() {
   const location = useLocation();
@@ -18,6 +21,9 @@ function Navigation() {
     { path: '/supplier-returns', icon: TrendingUp, label: 'Returns' },
     { path: '/sales', icon: ShoppingCart, label: 'Sales' },
     { path: '/reports', icon: FileText, label: 'Reports' },
+    { path: '/AnalyticsDashboard', icon: FileText, label: 'AnalyticsDashboard' },
+    // { path: '/PredictionsDashboard', icon: FileText, label: 'PredictionsDashboard' },
+    // { path: '/ProductDemandPredictor', icon: FileText, label: 'ProductDemandPredictor' },
   ];
 
   return (
@@ -67,6 +73,9 @@ function App() {
               <Route path="/supplier-returns" element={<SupplierReturns />} />
               <Route path="/sales" element={<Sales />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/AnalyticsDashboard" element={<AnalyticsDashboard />} />
+              {/* <Route path="/PredictionsDashboard" element={<PredictionsDashboard />} />
+              <Route path="/ProductDemandPredictor" element={<ProductDemandPredictor />} /> */}
             </Routes>
           </main>
         </div>
