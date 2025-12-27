@@ -1,7 +1,7 @@
 from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional, Literal
+from typing import Optional, Literal, Dict
 from models import MeasurementUnit
 
 # Cloth Variety Schemas
@@ -128,3 +128,36 @@ class SalespersonSummary(BaseModel):
     total_profit: Decimal
     total_items_sold: int
     sales_count: int
+
+
+# app/schemas.py - ADD THESE SCHEMAS
+
+class ExpenseBase(BaseModel):
+    category: str
+    amount: Decimal = Field(..., gt=0, decimal_places=2)
+    expense_date: date
+    description: Optional[str] = None
+
+class ExpenseCreate(ExpenseBase):
+    pass
+
+class ExpenseResponse(ExpenseBase):
+    id: int
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+class ExpenseSummary(BaseModel):
+    total_expenses: Decimal
+    category_breakdown: Dict[str, Decimal]
+    expense_count: int
+    
+class FinancialReport(BaseModel):
+    date: date
+    total_revenue: Decimal
+    total_profit: Decimal
+    total_expenses: Decimal
+    net_income: Decimal
+    profit_margin: float
+    expense_ratio: float

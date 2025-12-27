@@ -45,4 +45,13 @@ export const getSalespersonSummary = (name, date) => api.get(`/sales/salesperson
 export const getDailyReport = (date) => api.get(`/reports/daily/${date}`);
 export const getProfitReport = (date) => api.get(`/reports/profit/${date}`);
 
+// Expenses
+export const getExpenses = () => api.get('/expenses/');
+export const getExpensesByDate = (date) => api.get(`/expenses/date/${date}`);
+export const getExpensesByMonth = (year, month) => api.get(`/expenses/month/${year}/${month}`);
+export const createExpense = (data) => api.post('/expenses/', data);
+export const deleteExpense = (id) => api.delete(`/expenses/${id}`);
+export const getExpenseSummary = (date) => api.get(`/expenses/summary/${date}`);
+export const getFinancialReport = (year, month) => api.get(`/expenses/financial-report/${year}/${month}`);
+
 export default api;

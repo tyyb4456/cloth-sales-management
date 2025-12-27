@@ -12,6 +12,8 @@ import AnalyticsDashboard from './pages/AnalyticsDashboard';
 import PredictionsDashboard from './components/PredictionsDashboard'; 
 import ProductDemandPredictor from './components/ProductDemandPredictor';
 import AIChatbot from './components/AIChatbot'
+import ExpenseTracker from './components/Expenses'
+import FinancialDashboard from './components/FinancialDashboard'
 
 function Navigation() {
   const location = useLocation();
@@ -86,6 +88,8 @@ function App() {
                   <Route path="/ProductDemandPredictor" element={<ProductDemandPredictor />} />
                   <Route path="/PredictionsDashboard" element={<PredictionsDashboard />} />
                   <Route path="/AIChatbot" element={<AIChatbot />} />
+                  <Route path="/ExpenseTracker" element={<ExpenseTracker />} />
+                  <Route path="/FinancialDashboard" element={<FinancialDashboard />} />
                   
                 </Routes>
               </div>

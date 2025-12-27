@@ -113,3 +113,34 @@ class Sale(Base):
     
     # Relationships
     variety = relationship("ClothVariety", back_populates="sales")
+
+# app/models.py - ADD THIS TO YOUR EXISTING MODELS
+
+class ExpenseCategory(str, enum.Enum):
+    RENT = "rent"
+    UTILITIES = "utilities"
+    SALARIES = "salaries"
+    MARKETING = "marketing"
+    TRANSPORTATION = "transportation"
+    OFFICE_SUPPLIES = "office_supplies"
+    MAINTENANCE = "maintenance"
+    INSURANCE = "insurance"
+    TAXES = "taxes"
+    OTHER = "other"
+
+class Expense(Base):
+    __tablename__ = "expenses"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    category = Column(
+        SQLEnum(
+            ExpenseCategory,
+            values_callable=lambda enum: [e.value for e in enum],
+            native_enum=False
+        ),
+        nullable=False
+    )
+    amount = Column(DECIMAL(10, 2), nullable=False)
+    expense_date = Column(Date, nullable=False, index=True)
+    description = Column(Text)
+    created_at = Column(DateTime, server_default=func.now())

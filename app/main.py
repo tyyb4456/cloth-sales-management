@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database import init_db
-from routes import varieties, supplier, sales, reports, predictions, chatbot  # ADD chatbot here
+from routes import varieties, supplier, sales, reports, predictions, chatbot, expenses  
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -39,7 +39,8 @@ app.include_router(supplier.router)
 app.include_router(sales.router)
 app.include_router(reports.router)
 app.include_router(predictions.router)
-app.include_router(chatbot.router)  # ADD THIS LINE
+app.include_router(chatbot.router)
+app.include_router(expenses.router)
 
 @app.get("/")
 def root():
