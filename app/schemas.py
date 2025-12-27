@@ -22,6 +22,14 @@ class ClothVarietyResponse(ClothVarietyBase):
     class Config:
         from_attributes = True
 
+
+class ClothVarietyUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    measurement_unit: Optional[MeasurementUnit] = None
+    standard_length: Optional[Decimal] = None
+
+
 # Supplier Inventory Schemas
 class SupplierInventoryBase(BaseModel):
     supplier_name: str = Field(..., min_length=1, max_length=100)

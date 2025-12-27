@@ -23,7 +23,7 @@ def create_sale(sale: SaleCreate, db: Session = Depends(get_db)):
     
     # Calculate profit
     profit_per_item = sale.selling_price - sale.cost_price
-    total_profit = profit_per_item * sale.quantity
+    total_profit = profit_per_item * Decimal(sale.quantity)
     
     db_sale = Sale(
         **sale.model_dump(),

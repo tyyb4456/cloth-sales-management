@@ -27,7 +27,7 @@ def add_supplier_inventory(inventory: SupplierInventoryCreate, db: Session = Dep
         )
     
     # Calculate total amount
-    total_amount = inventory.quantity * inventory.price_per_item
+    total_amount = Decimal(inventory.quantity) * inventory.price_per_item
     
     db_inventory = SupplierInventory(
         **inventory.model_dump(),
