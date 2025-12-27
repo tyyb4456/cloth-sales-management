@@ -8,20 +8,13 @@ import os
 
 # LangChain imports
 try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
     from langchain.messages import HumanMessage, SystemMessage, AIMessage
-    from langgraph.checkpoint import memory
     LANGCHAIN_AVAILABLE = True
 except ImportError:
     LANGCHAIN_AVAILABLE = False
     print("⚠️ Warning: LangChain not installed.")
-    print("   Install with: pip install langchain openai")
-
-# Alternative: Use Anthropic Claude
-try:
-    from langchain.chat_models import init_chat_model
-    GEMINI_AVAILABLE = True
-except ImportError:
-    GEMINI_AVAILABLE = False
+    print("   Install with: pip install langchain-google-genai")
 
 
 class BusinessChatbot:
@@ -29,19 +22,29 @@ class BusinessChatbot:
     
     def __init__(self, db_session=None):
         self.db = db_session
-        self.memory = memory
         self.llm = self._initialize_llm()
         
     def _initialize_llm(self):
-        """Initialize the language model (OpenAI or Anthropic)"""
+        """Initialize the language model (Google Gemini)"""
         if not LANGCHAIN_AVAILABLE:
             return None
         
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            print("⚠️ Warning: GOOGLE_API_KEY not found in environment variables")
+            return None
         
-        model = init_chat_model("gemini-2.0-flash-exp", model_provider="google_genai", temperature=0.7)
-        if model:
+        try:
+            model = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash",
+                google_api_key=api_key,
+                temperature=0.7,
+                convert_system_message_to_human=True
+            )
             return model
-        return None
+        except Exception as e:
+            print(f"Error initializing Gemini: {e}")
+            return None
     
     def get_business_context(self) -> str:
         """Get current business data as context for the AI"""
@@ -157,9 +160,9 @@ REMEMBER:
         """
         if not self.llm:
             return {
-                "response": "AI chatbot is not configured. Please set OPENAI_API_KEY or ANTHROPIC_API_KEY in your .env file.",
+                "response": "AI chatbot is not configured. Please set GOOGLE_API_KEY in your .env file to enable AI features.\n\nYou can still ask simple questions and I'll try to help with basic queries!",
                 "error": "no_api_key",
-                "suggested_action": "Configure API keys to enable AI features"
+                "success": False
             }
         
         try:
@@ -179,19 +182,20 @@ REMEMBER:
             # Add current message
             messages.append(HumanMessage(content=user_message))
             
-            # Get AI response
-            response = self.llm(messages)
+            # Get AI response - FIX: Call invoke() method
+            response = self.llm.invoke(messages)
             
             return {
                 "response": response.content,
                 "timestamp": datetime.now().isoformat(),
-                "model": "gemini-flash-2.5",
+                "model": "gemini-2.0-flash-exp",
                 "success": True
             }
             
         except Exception as e:
+            print(f"Error in chat: {str(e)}")
             return {
-                "response": f"I encountered an error: {str(e)}",
+                "response": f"I encountered an error while processing your request. Error: {str(e)}\n\nPlease make sure your Google API key is correctly configured.",
                 "error": str(e),
                 "success": False
             }

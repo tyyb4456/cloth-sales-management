@@ -21,9 +21,9 @@ export default function Sidebar() {
 
   const menuItems = [
     { path: '/', icon: LayoutDashboard, label: 'Dashboard' },
-    // { path: '/analytics', icon: BarChart3, label: 'Analytics' },
     { path: '/ProductDemandPredictor', icon: BarChart3, label: 'ProductDemandPredictor' },
     { path: '/PredictionsDashboard', icon: BarChart3, label: 'PredictionsDashboard' },
+    { path: '/AIChatbot', icon: BarChart3, label: 'AIChatbot' },
 
 
   ];

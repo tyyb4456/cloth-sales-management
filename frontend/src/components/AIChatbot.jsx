@@ -1,20 +1,105 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Send, Sparkles, TrendingUp, Package, DollarSign, X, Minimize2, Maximize2 } from 'lucide-react';
+import { MessageCircle, Send, Loader2, X, Lightbulb, Sparkles, Bot, User } from 'lucide-react';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'http://127.0.0.1:8000';
+
+// Component to format markdown-style text
+const FormattedMessage = ({ content, isUser }) => {
+  const formatText = (text) => {
+    if (!text) return [];
+    
+    const lines = text.split('\n');
+    const elements = [];
+    
+    lines.forEach((line, lineIndex) => {
+      // Headers (# heading)
+      if (line.match(/^#{1,3}\s+(.+)/)) {
+        const level = line.match(/^(#{1,3})/)[0].length;
+        const text = line.replace(/^#{1,3}\s+/, '');
+        const fontSize = level === 1 ? 'text-lg' : level === 2 ? 'text-base' : 'text-sm';
+        elements.push(
+          <div key={lineIndex} className={`font-bold ${fontSize} mt-2 mb-1 ${isUser ? 'text-white' : 'text-gray-900'}`}>
+            {text}
+          </div>
+        );
+        return;
+      }
+      
+      // Bold text (**text**)
+      if (line.includes('**')) {
+        const parts = line.split(/(\*\*.*?\*\*)/g);
+        elements.push(
+          <div key={lineIndex} className="mb-1">
+            {parts.map((part, i) => {
+              if (part.startsWith('**') && part.endsWith('**')) {
+                return <strong key={i} className="font-semibold">{part.slice(2, -2)}</strong>;
+              }
+              return <span key={i}>{part}</span>;
+            })}
+          </div>
+        );
+        return;
+      }
+      
+      // Bullet points (- item or * item)
+      if (line.match(/^[\-\*]\s+(.+)/)) {
+        const text = line.replace(/^[\-\*]\s+/, '');
+        elements.push(
+          <div key={lineIndex} className="flex gap-2 mb-1 ml-2">
+            <span className={isUser ? 'text-white/80' : 'text-gray-600'}>•</span>
+            <span>{text}</span>
+          </div>
+        );
+        return;
+      }
+      
+      // Numbered lists (1. item)
+      if (line.match(/^\d+\.\s+(.+)/)) {
+        const match = line.match(/^(\d+)\.\s+(.+)/);
+        elements.push(
+          <div key={lineIndex} className="flex gap-2 mb-1 ml-2">
+            <span className={`font-medium ${isUser ? 'text-white/80' : 'text-gray-600'}`}>{match[1]}.</span>
+            <span>{match[2]}</span>
+          </div>
+        );
+        return;
+      }
+      
+      // Empty lines
+      if (line.trim() === '') {
+        elements.push(<div key={lineIndex} className="h-2" />);
+        return;
+      }
+      
+      // Regular text
+      elements.push(
+        <div key={lineIndex} className="mb-1">
+          {line}
+        </div>
+      );
+    });
+    
+    return elements;
+  };
+  
+  return <div className="space-y-0.5">{formatText(content)}</div>;
+};
 
 const AIChatbot = () => {
+  const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([]);
-  const [input, setInput] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [inputMessage, setInputMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [quickStats, setQuickStats] = useState(null);
-  const [isMinimized, setIsMinimized] = useState(false);
-  const [isClosed, setIsClosed] = useState(true);
+  const [suggestedQuestions, setSuggestedQuestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
-    loadQuickStats();
-  }, []);
+    if (isOpen && messages.length === 0) {
+      loadInitialData();
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     scrollToBottom();
@@ -24,249 +109,313 @@ const AIChatbot = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadQuickStats = async () => {
+  const loadInitialData = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/chatbot/quick-stats`);
-      if (response.ok) {
-        const data = await response.json();
-        setQuickStats(data);
+      // Try to load stats and questions
+      const statsRes = await fetch(`${API_BASE_URL}/chatbot/quick-stats`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+      
+      const questionsRes = await fetch(`${API_BASE_URL}/chatbot/suggested-questions`)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null);
+      
+      if (statsRes) {
+        setQuickStats(statsRes);
       }
+      
+      if (questionsRes?.quick_queries) {
+        setSuggestedQuestions(questionsRes.quick_queries);
+      }
+
+      // Welcome message
+      const welcomeMsg = statsRes 
+        ? `👋 Hello! I'm your AI business assistant.\n\nToday's Summary:\n• Revenue: ₹${statsRes.today.revenue.toLocaleString()}\n• Profit: ₹${statsRes.today.profit.toLocaleString()}\n• Orders: ${statsRes.today.transactions}\n\nWhat would you like to know?`
+        : `👋 Hello! I'm your AI business assistant. I can help you analyze your sales, inventory, and business performance. What would you like to know?`;
+
+      setMessages([{
+        role: 'assistant',
+        content: welcomeMsg,
+        timestamp: new Date().toISOString()
+      }]);
     } catch (error) {
-      console.error('Error loading quick stats:', error);
+      console.error('Error loading initial data:', error);
+      setMessages([{
+        role: 'assistant',
+        content: "👋 Hello! I'm your AI business assistant. How can I help you today?",
+        timestamp: new Date().toISOString()
+      }]);
     }
   };
 
-  const sendMessage = async (messageText = input) => {
-    if (!messageText.trim()) return;
+  const handleSendMessage = async (messageText = null) => {
+    const textToSend = messageText || inputMessage.trim();
+    if (!textToSend || isLoading) return;
 
     const userMessage = {
       role: 'user',
-      content: messageText,
+      content: textToSend,
       timestamp: new Date().toISOString()
     };
 
     setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setLoading(true);
+    setInputMessage('');
+    setShowSuggestions(false);
+    setIsLoading(true);
 
     try {
       const response = await fetch(`${API_BASE_URL}/chatbot/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: messageText,
+          message: textToSend,
           conversation_history: messages
         })
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const aiMessage = {
-          role: 'assistant',
-          content: data.response,
-          timestamp: data.timestamp,
-          model: data.model
-        };
-        setMessages(prev => [...prev, aiMessage]);
-      } else {
-        throw new Error('Failed to get response');
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+
+      const data = await response.json();
+
+      const aiMessage = {
+        role: 'assistant',
+        content: data.response,
+        timestamp: data.timestamp,
+        model: data.model
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage = {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.',
+        content: "I apologize, but I'm having trouble processing your request right now. This could be because:\n\n1. The AI service is not properly configured\n2. The backend server needs to be restarted\n3. The Google API key might be missing\n\nPlease check the console for more details.",
         timestamp: new Date().toISOString(),
-        error: true
+        isError: true
       };
       setMessages(prev => [...prev, errorMessage]);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  const handleQuickQuery = (query) => {
+    handleSendMessage(query);
   };
 
-  const handleSuggestedQuestion = (question) => {
-    sendMessage(question);
+  const clearChat = () => {
+    setMessages([]);
+    setShowSuggestions(true);
+    loadInitialData();
   };
-
-  if (isClosed) {
-    return (
-      <button
-        onClick={() => setIsClosed(false)}
-        className="fixed bottom-6 right-6 w-16 h-16 bg-linear-to-r from-blue-600 to-purple-600 
-                   text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300
-                   flex items-center justify-center group hover:scale-110 z-50"
-      >
-        <MessageCircle className="w-7 h-7" />
-        <span className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full animate-pulse"></span>
-      </button>
-    );
-  }
 
   return (
-    <div className={`fixed ${isMinimized ? 'bottom-6 right-6' : 'inset-0 md:bottom-6 md:right-6 md:inset-auto'} 
-                     ${isMinimized ? 'w-80 h-16' : 'w-full h-full md:w-112.5 md:h-175'} 
-                     bg-white rounded-xl shadow-2xl flex flex-col z-50 transition-all duration-300`}>
-      
-      <div className="bg-linear-to-r from-blue-600 to-purple-600 text-white px-6 py-4 rounded-t-xl flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-            <Sparkles className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="font-bold text-lg">AI Business Assistant</h3>
-            <p className="text-xs text-white/80">Ask me anything about your business</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsMinimized(!isMinimized)}
-            className="p-2 hover:bg-white/20 rounded-lg transition"
-          >
-            {isMinimized ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
-          </button>
-          <button
-            onClick={() => setIsClosed(true)}
-            className="p-2 hover:bg-white/20 rounded-lg transition"
-          >
-            <X size={18} />
-          </button>
-        </div>
-      </div>
+    <>
+      {/* Floating Chat Button */}
+      {!isOpen && (
+        <button
+          onClick={() => setIsOpen(true)}
+          className="fixed bottom-6 right-6 w-16 h-16 bg-linear-to-br from-purple-600 to-blue-600 
+                     text-white rounded-full shadow-2xl hover:shadow-purple-500/50 
+                     transition-all duration-300 hover:scale-110 z-50 flex items-center justify-center group"
+        >
+          <MessageCircle size={28} className="group-hover:scale-110 transition-transform" />
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></span>
+        </button>
+      )}
 
-      {!isMinimized && (
-        <>
-          {quickStats && messages.length === 0 && (
-            <div className="p-4 bg-linear-to-br from-blue-50 to-purple-50 border-b">
-              <p className="text-sm font-semibold text-gray-700 mb-3">Quick Overview</p>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-white rounded-lg p-3 text-center shadow-sm">
-                  <DollarSign className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                  <p className="text-xs text-gray-600">Today</p>
-                  <p className="font-bold text-sm">₹{quickStats.today.revenue.toLocaleString()}</p>
-                </div>
-                <div className="bg-white rounded-lg p-3 text-center shadow-sm">
-                  <TrendingUp className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                  <p className="text-xs text-gray-600">This Week</p>
-                  <p className="font-bold text-sm">₹{quickStats.this_week.revenue.toLocaleString()}</p>
-                </div>
-                <div className="bg-white rounded-lg p-3 text-center shadow-sm">
-                  <Package className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-                  <p className="text-xs text-gray-600">Profit</p>
-                  <p className="font-bold text-sm">₹{quickStats.today.profit.toLocaleString()}</p>
-                </div>
+      {/* Chat Window */}
+      {isOpen && (
+        <div className="fixed bottom-6 right-6 w-105 h-150 bg-white rounded-2xl shadow-2xl 
+                        flex flex-col z-50 border border-gray-200 overflow-hidden">
+          {/* Header */}
+          <div className="bg-linear-to-r from-purple-600 to-blue-600 text-white p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                <Bot size={22} />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">AI Business Assistant</h3>
+                <p className="text-xs text-white/80 flex items-center gap-1">
+                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                  Online
+                </p>
               </div>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={clearChat}
+                className="p-2 hover:bg-white/20 rounded-lg transition"
+                title="Clear chat"
+              >
+                <Sparkles size={18} />
+              </button>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-2 hover:bg-white/20 rounded-lg transition"
+              >
+                <X size={20} />
+              </button>
+            </div>
+          </div>
 
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.length === 0 && (
-              <div className="text-center py-8">
-                <div className="w-20 h-20 bg-linear-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="w-10 h-10 text-blue-600" />
+          {/* Messages Container */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
+              >
+                <div className={`flex gap-2 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+                  {/* Avatar */}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
+                    message.role === 'user' 
+                      ? 'bg-linear-to-br from-purple-500 to-blue-500' 
+                      : 'bg-linear-to-br from-gray-700 to-gray-900'
+                  }`}>
+                    {message.role === 'user' ? <User size={16} className="text-white" /> : <Bot size={16} className="text-white" />}
+                  </div>
+
+                  {/* Message Bubble */}
+                  <div className={`rounded-2xl px-4 py-2.5 ${
+                    message.role === 'user'
+                      ? 'bg-linear-to-br from-purple-600 to-blue-600 text-white'
+                      : message.isError
+                      ? 'bg-red-50 text-red-800 border border-red-200'
+                      : 'bg-white text-gray-800 shadow-sm border border-gray-200'
+                  }`}>
+                    <div className="text-sm leading-relaxed">
+                      <FormattedMessage content={message.content} isUser={message.role === 'user'} />
+                    </div>
+                    <p className={`text-xs mt-1 ${
+                      message.role === 'user' ? 'text-white/70' : 'text-gray-400'
+                    }`}>
+                      {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
                 </div>
-                <h4 className="text-lg font-semibold text-gray-800 mb-2">Ask Me Anything!</h4>
-                <p className="text-sm text-gray-600 mb-4">I can help you with sales, profit, inventory, and more</p>
-                
-                <div className="space-y-2 mt-6">
-                  <p className="text-xs font-semibold text-gray-600 mb-2">Try asking:</p>
-                  {['How much did I sell today?', 'What are my top products?', 'Show me profit this month'].map((q, i) => (
+              </div>
+            ))}
+
+            {/* Loading Indicator */}
+            {isLoading && (
+              <div className="flex justify-start animate-fadeIn">
+                <div className="flex gap-2">
+                  <div className="w-8 h-8 rounded-full bg-linear-to-br from-gray-700 to-gray-900 flex items-center justify-center">
+                    <Bot size={16} className="text-white" />
+                  </div>
+                  <div className="bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-200">
+                    <div className="flex gap-1">
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Suggested Questions */}
+            {showSuggestions && messages.length <= 1 && suggestedQuestions.length > 0 && (
+              <div className="space-y-2 animate-fadeIn">
+                <p className="text-xs text-gray-500 font-medium px-1 flex items-center gap-1">
+                  <Lightbulb size={14} />
+                  Quick questions:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestedQuestions.map((question, idx) => (
                     <button
-                      key={i}
-                      onClick={() => handleSuggestedQuestion(q)}
-                      className="block w-full text-left px-4 py-2 bg-gray-50 hover:bg-gray-100 
-                               rounded-lg text-sm text-gray-700 transition"
+                      key={idx}
+                      onClick={() => handleQuickQuery(question)}
+                      className="px-3 py-1.5 bg-white hover:bg-purple-50 border border-gray-200 
+                               hover:border-purple-300 rounded-full text-xs text-gray-700 
+                               hover:text-purple-700 transition-all duration-200 hover:shadow-sm"
                     >
-                      {q}
+                      {question}
                     </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-3 ${
-                    msg.role === 'user'
-                      ? 'bg-linear-to-r from-blue-600 to-purple-600 text-white'
-                      : msg.error
-                      ? 'bg-red-50 text-red-800 border border-red-200'
-                      : 'bg-gray-100 text-gray-800'
-                  }`}
-                >
-                  {msg.role === 'assistant' && !msg.error && (
-                    <div className="flex items-center gap-2 mb-1">
-                      <Sparkles className="w-4 h-4 text-blue-600" />
-                      <span className="text-xs font-semibold text-blue-600">AI Assistant</span>
-                    </div>
-                  )}
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-                  <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-white/70' : 'text-gray-500'}`}>
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-              </div>
-            ))}
-
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                    </div>
-                    <span className="text-xs text-gray-600">Thinking...</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            
             <div ref={messagesEndRef} />
           </div>
 
-          <div className="p-4 border-t bg-gray-50">
+          {/* Quick Stats Bar - Only show if data is available */}
+          {quickStats && quickStats.today && (
+            <div className="border-t border-gray-200 bg-white p-3">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-linear-to-br from-green-50 to-emerald-50 rounded-lg p-2 border border-green-200">
+                  <p className="text-xs text-gray-600 font-medium">Revenue</p>
+                  <p className="text-sm font-bold text-green-700">₹{quickStats.today.revenue.toLocaleString()}</p>
+                </div>
+                <div className="bg-linear-to-br from-blue-50 to-indigo-50 rounded-lg p-2 border border-blue-200">
+                  <p className="text-xs text-gray-600 font-medium">Profit</p>
+                  <p className="text-sm font-bold text-blue-700">₹{quickStats.today.profit.toLocaleString()}</p>
+                </div>
+                <div className="bg-linear-to-br from-purple-50 to-pink-50 rounded-lg p-2 border border-purple-200">
+                  <p className="text-xs text-gray-600 font-medium">Orders</p>
+                  <p className="text-sm font-bold text-purple-700">{quickStats.today.transactions}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Input Area */}
+          <div className="border-t border-gray-200 bg-white p-4">
             <div className="flex gap-2">
               <input
                 type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask me anything..."
-                className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:outline-none 
-                         focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={loading}
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                placeholder="Ask me anything about your business..."
+                disabled={isLoading}
+                className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl 
+                         focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent
+                         disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               />
               <button
-                onClick={() => sendMessage()}
-                disabled={loading || !input.trim()}
-                className="px-5 py-3 bg-linear-to-r from-blue-600 to-purple-600 text-white 
-                         rounded-xl hover:shadow-lg transition-all disabled:opacity-50 
-                         disabled:cursor-not-allowed flex items-center gap-2"
+                onClick={() => handleSendMessage()}
+                disabled={!inputMessage.trim() || isLoading}
+                className="p-3 bg-linear-to-br from-purple-600 to-blue-600 text-white rounded-xl
+                         hover:from-purple-700 hover:to-blue-700 transition-all duration-200
+                         disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-purple-600 
+                         disabled:hover:to-blue-600 hover:shadow-lg hover:scale-105 active:scale-95"
               >
-                <Send size={18} />
+                {isLoading ? (
+                  <Loader2 size={20} className="animate-spin" />
+                ) : (
+                  <Send size={20} />
+                )}
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-2 text-center">
-              Powered by AI • Ask about sales, profit, inventory & more
+            <p className="text-xs text-gray-400 mt-2 text-center">
+              Powered by AI • Real-time business insights
             </p>
           </div>
-        </>
+        </div>
       )}
-    </div>
+
+      <style jsx>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-fadeIn {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
+    </>
   );
-};  
+};
 
 export default AIChatbot;

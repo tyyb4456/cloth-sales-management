@@ -79,7 +79,7 @@ def add_supplier_return(return_item: SupplierReturnCreate, db: Session = Depends
         )
     
     # Calculate total amount
-    total_amount = return_item.quantity * return_item.price_per_item
+    total_amount = Decimal(return_item.quantity) * return_item.price_per_item
     
     db_return = SupplierReturn(
         **return_item.model_dump(),
