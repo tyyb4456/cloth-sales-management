@@ -150,26 +150,31 @@ export default function Sales() {
           >
             {/* Salesperson Name */}
             <div className="relative w-full">
-
               <label className="block mb-1 text-sm font-medium text-gray-700">
                 Salesperson Name
               </label>
-              <input
-                type="text"
+
+              <select
                 required
                 value={formData.salesperson_name}
                 onChange={(e) =>
                   setFormData({ ...formData, salesperson_name: e.target.value })
                 }
-                placeholder=" "
-                className="peer w-full px-4 pt-6 pb-2 text-gray-900 bg-white
-                   border border-gray-300 rounded-lg
-                   focus:outline-none focus:border-gray-500
-                   focus:ring-2 focus:ring-gray-500/20
-                   transition-all duration-300"
-              />
-
+                className="w-full px-4 py-3 text-gray-900 bg-white
+      border border-gray-300 rounded-lg
+      focus:outline-none focus:border-gray-500
+      focus:ring-2 focus:ring-gray-500/20
+      transition-all duration-300"
+              >
+                <option value="" disabled>
+                  Select Salesperson
+                </option>
+                <option value="shahzad">shahzad</option>
+                <option value="zulifqar">zulifqar</option>
+                <option value="kashif">kashif</option>
+              </select>
             </div>
+
 
             {/* Cloth Variety (Searchable) */}
             <div className="relative w-full">

@@ -1,14 +1,33 @@
-from sqlalchemy import Column, Integer, String, DECIMAL, DateTime, Date, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, DECIMAL, DateTime, Date, Text, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from database import Base
+import enum 
+
+class MeasurementUnit(str, enum.Enum):
+    PIECES = "pieces"
+    METERS = "meters"
+    YARDS = "yards"
 
 class ClothVariety(Base):
     __tablename__ = "cloth_varieties"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False, unique=True)
+    measurement_unit = Column(
+        SQLEnum(
+            MeasurementUnit,
+            values_callable=lambda enum: [e.value for e in enum],
+            native_enum=False
+        ),
+        nullable=False,
+        default=MeasurementUnit.PIECES
+    )
+
+    # For meter-based items, store standard length per piece
+    standard_length = Column(DECIMAL(10, 2), nullable=True) 
     description = Column(Text)
+    
     created_at = Column(DateTime, server_default=func.now())
 
     supplier_inventories = relationship(
@@ -44,7 +63,7 @@ class SupplierInventory(Base):
         nullable=False
     )
 
-    quantity = Column(Integer, nullable=False)
+    quantity = Column(DECIMAL(10, 2), nullable=False) 
     price_per_item = Column(DECIMAL(10, 2), nullable=False)
     total_amount = Column(DECIMAL(10, 2), nullable=False)
     supply_date = Column(Date, nullable=False, index=True)
@@ -64,7 +83,7 @@ class SupplierReturn(Base):
         nullable=False
     )
 
-    quantity = Column(Integer, nullable=False)
+    quantity = Column(DECIMAL(10, 2), nullable=False) 
     price_per_item = Column(DECIMAL(10, 2), nullable=False)
     total_amount = Column(DECIMAL(10, 2), nullable=False)
     return_date = Column(Date, nullable=False, index=True)

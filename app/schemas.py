@@ -1,12 +1,16 @@
 from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Literal
+from models import MeasurementUnit
 
 # Cloth Variety Schemas
 class ClothVarietyBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
+
+    measurement_unit: MeasurementUnit = MeasurementUnit.PIECES
+    standard_length: Optional[Decimal] = None 
 
 class ClothVarietyCreate(ClothVarietyBase):
     pass
@@ -22,7 +26,7 @@ class ClothVarietyResponse(ClothVarietyBase):
 class SupplierInventoryBase(BaseModel):
     supplier_name: str = Field(..., min_length=1, max_length=100)
     variety_id: int
-    quantity: int = Field(..., gt=0)
+    quantity: float = Field(..., gt=0)
     price_per_item: Decimal = Field(..., gt=0, decimal_places=2)
     supply_date: date
 
@@ -42,7 +46,7 @@ class SupplierInventoryResponse(SupplierInventoryBase):
 class SupplierReturnBase(BaseModel):
     supplier_name: str = Field(..., min_length=1, max_length=100)
     variety_id: int
-    quantity: int = Field(..., gt=0)
+    quantity: float = Field(..., gt=0)
     price_per_item: Decimal = Field(..., gt=0, decimal_places=2)
     return_date: date
     reason: Optional[str] = None
@@ -63,7 +67,7 @@ class SupplierReturnResponse(SupplierReturnBase):
 class SaleBase(BaseModel):
     salesperson_name: str = Field(..., min_length=1, max_length=100)
     variety_id: int
-    quantity: int = Field(..., gt=0)
+    quantity: float = Field(..., gt=0)
     selling_price: Decimal = Field(..., gt=0, decimal_places=2)
     cost_price: Decimal = Field(..., gt=0, decimal_places=2)
     sale_date: date
@@ -100,7 +104,7 @@ class DailySalesSummary(BaseModel):
     date: date
     total_sales_amount: Decimal
     total_profit: Decimal
-    total_quantity_sold: int
+    total_quantity_sold: Decimal
     sales_count: int
 
 class DailyReport(BaseModel):
