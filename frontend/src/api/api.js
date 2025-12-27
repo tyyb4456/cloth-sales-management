@@ -12,10 +12,8 @@ const api = axios.create({
 // Cloth Varieties
 export const getVarieties = () => api.get('/varieties/');
 export const createVariety = (data) => api.post('/varieties/', data);
+export const updateVariety = (id, data) => api.put(`/varieties/${id}`, data);
 export const deleteVariety = (id) => api.delete(`/varieties/${id}`);
-export const updateVariety = (id, data) =>
-  axios.put(`/varieties/${id}`, data);
-
 
 // Supplier Inventory
 export const getSupplierInventory = () => api.get('/supplier/inventory');
