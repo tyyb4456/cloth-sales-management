@@ -13,3 +13,7 @@ scipy
 scikit-learn
 pandas
 statsmodels
+
+langchain
+langchain-google-genai
+# chromadb

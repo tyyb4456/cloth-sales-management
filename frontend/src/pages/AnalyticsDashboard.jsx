@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Award, AlertCircle } from 'lucide-react';
+import PredictionsDashboard from '../components/PredictionsDashboard';
+import ProductDemandPredictor from '../components/ProductDemandPredictor'
+
 
 // Real API integration
 const API_BASE_URL = 'http://localhost:8000';
@@ -487,6 +490,7 @@ const AnalyticsDashboard = () => {
           </div>
         </div>
       </div>
+   
     </div>
   );
 };

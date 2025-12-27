@@ -1,15 +1,16 @@
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Package, TrendingUp, ShoppingCart, FileText, Grid3x3 } from 'lucide-react';
+import { Home, Package, TrendingUp, ShoppingCart, FileText, Grid3x3, BarChart3 } from 'lucide-react';
 import { ToastProvider } from './components/Toast';
+import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Varieties from './pages/Varieties';
 import SupplierInventory from './pages/SupplierInventory';
 import SupplierReturns from './pages/SupplierReturns';
 import Sales from './pages/Sales';
 import Reports from './pages/Reports';
-import AnalyticsDashboard from './pages/AnalyticsDashboard'
-// import PredictionsDashboard from './pages/PredictionsDashboard';
-// import ProductDemandPredictor from './pages/ProductDemandPredictor';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import PredictionsDashboard from './components/PredictionsDashboard'; 
+import ProductDemandPredictor from './components/ProductDemandPredictor';
 
 function Navigation() {
   const location = useLocation();
@@ -21,9 +22,7 @@ function Navigation() {
     { path: '/supplier-returns', icon: TrendingUp, label: 'Returns' },
     { path: '/sales', icon: ShoppingCart, label: 'Sales' },
     { path: '/reports', icon: FileText, label: 'Reports' },
-    { path: '/AnalyticsDashboard', icon: FileText, label: 'AnalyticsDashboard' },
-    // { path: '/PredictionsDashboard', icon: FileText, label: 'PredictionsDashboard' },
-    // { path: '/ProductDemandPredictor', icon: FileText, label: 'ProductDemandPredictor' },
+    { path: '/analytics', icon: BarChart3, label: 'Analytics' },
   ];
 
   return (
@@ -63,21 +62,33 @@ function App() {
   return (
     <Router>
       <ToastProvider>
-        <div className="min-h-screen bg-gray-50">
-          <Navigation />
-          <main className="max-w-7xl mx-auto px-4 py-8">
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/varieties" element={<Varieties />} />
-              <Route path="/supplier-inventory" element={<SupplierInventory />} />
-              <Route path="/supplier-returns" element={<SupplierReturns />} />
-              <Route path="/sales" element={<Sales />} />
-              <Route path="/reports" element={<Reports />} />
-              <Route path="/AnalyticsDashboard" element={<AnalyticsDashboard />} />
-              {/* <Route path="/PredictionsDashboard" element={<PredictionsDashboard />} />
-              <Route path="/ProductDemandPredictor" element={<ProductDemandPredictor />} /> */}
-            </Routes>
-          </main>
+        <div className="min-h-screen bg-gray-50 flex">
+          {/* Sidebar */}
+          <Sidebar />
+          
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col min-h-screen">
+            {/* Top Navigation Bar with Buttons */}
+            <Navigation />
+            
+            {/* Page Content */}
+            <main className="flex-1 overflow-y-auto">
+              <div className="max-w-7xl mx-auto px-4 py-8">
+                <Routes>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/varieties" element={<Varieties />} />
+                  <Route path="/supplier-inventory" element={<SupplierInventory />} />
+                  <Route path="/supplier-returns" element={<SupplierReturns />} />
+                  <Route path="/sales" element={<Sales />} />
+                  <Route path="/reports" element={<Reports />} />
+                  <Route path="/analytics" element={<AnalyticsDashboard />} />
+                  <Route path="/ProductDemandPredictor" element={<ProductDemandPredictor />} />
+                  <Route path="/PredictionsDashboard" element={<PredictionsDashboard />} />
+                  
+                </Routes>
+              </div>
+            </main>
+          </div>
         </div>
       </ToastProvider>
     </Router>

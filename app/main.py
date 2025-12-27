@@ -1,8 +1,10 @@
+# app/main.py
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database import init_db
-from routes import varieties, supplier, sales, reports
+from routes import varieties, supplier, sales, reports, predictions
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -16,10 +18,10 @@ async def lifespan(app: FastAPI):
     print("Application shutting down...")
 
 app = FastAPI(
-    title="Cloth Shop Management System",
-    description="API for managing cloth shop inventory, supplier transactions, and sales",
-    version="1.0.0",
-    lifespan=lifespan  # Add this parameter
+    title="Cloth Shop Management System with AI",
+    description="Smart inventory and sales management with predictive analytics",
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # CORS middleware
@@ -36,19 +38,26 @@ app.include_router(varieties.router)
 app.include_router(supplier.router)
 app.include_router(sales.router)
 app.include_router(reports.router)
-
-# Remove the old @app.on_event("startup") decorator completely
+app.include_router(predictions.router)  # NEW: Predictive Analytics
 
 @app.get("/")
 def root():
     """Root endpoint"""
     return {
-        "message": "Welcome to Cloth Shop Management System API",
-        "docs": "/docs",
-        "version": "1.0.0"
+        "message": "Welcome to Cloth Shop Management System with AI",
+        "version": "2.0.0",
+        "features": [
+            "Inventory Management",
+            "Sales Tracking",
+            "Supplier Management",
+            "Advanced Analytics",
+            "AI-Powered Predictions 🤖",
+            "Smart Insights"
+        ],
+        "docs": "/docs"
     }
 
 @app.get("/health")
 def health_check():
     """Health check endpoint"""
-    return {"status": "healthy"}
+    return {"status": "healthy", "ai_enabled": True}
