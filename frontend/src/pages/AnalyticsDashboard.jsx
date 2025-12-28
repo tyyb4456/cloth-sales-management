@@ -1,11 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Award, AlertCircle } from 'lucide-react';
-import PredictionsDashboard from '../components/PredictionsDashboard';
-import ProductDemandPredictor from '../components/ProductDemandPredictor'
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Award, AlertCircle, Users } from 'lucide-react';
 
-
-// Real API integration
 const API_BASE_URL = 'http://localhost:8000';
 
 const getDateRange = (days) => {
@@ -22,7 +18,6 @@ const fetchRealAnalytics = async (days) => {
   try {
     const { startDate, endDate } = getDateRange(days);
     
-    // Fetch all data in parallel
     const [salesRes, inventoryRes, returnsRes, varietiesRes] = await Promise.all([
       fetch(`${API_BASE_URL}/sales/`),
       fetch(`${API_BASE_URL}/supplier/inventory`),
@@ -41,7 +36,6 @@ const fetchRealAnalytics = async (days) => {
       varietiesRes.json()
     ]);
 
-    // Filter by date range
     const sales = allSales.filter(s => {
       const date = new Date(s.sale_date);
       return date >= new Date(startDate) && date <= new Date(endDate);
@@ -130,6 +124,40 @@ const fetchRealAnalytics = async (days) => {
       .sort((a, b) => b.revenue - a.revenue)
       .slice(0, 5);
 
+    // Calculate salesperson performance
+    const salespersonStats = {};
+    sales.forEach(sale => {
+      const name = sale.salesperson_name;
+      if (!salespersonStats[name]) {
+        salespersonStats[name] = {
+          name,
+          transactions: 0,
+          revenue: 0,
+          profit: 0,
+          quantity: 0,
+          avgTransactionValue: 0
+        };
+      }
+      
+      const revenue = parseFloat(sale.selling_price) * sale.quantity;
+      const profit = parseFloat(sale.profit);
+      
+      salespersonStats[name].transactions += 1;
+      salespersonStats[name].revenue += revenue;
+      salespersonStats[name].profit += profit;
+      salespersonStats[name].quantity += sale.quantity;
+    });
+    
+    // Calculate average transaction value for each salesperson
+    Object.values(salespersonStats).forEach(person => {
+      person.avgTransactionValue = person.transactions > 0 
+        ? person.revenue / person.transactions 
+        : 0;
+    });
+    
+    const salespersonPerformance = Object.values(salespersonStats)
+      .sort((a, b) => b.revenue - a.revenue);
+
     // Calculate supplier performance
     const supplierStats = {};
     
@@ -185,7 +213,8 @@ const fetchRealAnalytics = async (days) => {
       salesData,
       topProducts,
       suppliers,
-      productMix
+      productMix,
+      salespersonPerformance
     };
   } catch (error) {
     console.error('Error fetching analytics:', error);
@@ -358,6 +387,195 @@ const AnalyticsDashboard = () => {
           )}
         </div>
 
+{/* Salesperson Performance Table */}
+{analytics.salespersonPerformance && analytics.salespersonPerformance.length > 0 && (
+  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+    
+    {/* Header */}
+    <div className="p-6 border-b border-gray-200 bg-linear-to-r from-gray-50 to-gray-100">
+      <div className="flex items-center gap-3">
+        <Users className="w-6 h-6 text-gray-600" />
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">
+            Salesperson Performance
+          </h2>
+          <p className="text-sm text-gray-600">
+            Individual sales team metrics and achievements
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        
+        {/* Table Head */}
+        <thead className="bg-gray-50 border-b border-gray-200">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">
+              Salesperson
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">
+              Transactions
+            </th>
+            <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">
+              Total Revenue
+            </th>
+            <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">
+              Total Profit
+            </th>
+            <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">
+              Avg Transaction
+            </th>
+            <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">
+              Performance
+            </th>
+          </tr>
+        </thead>
+
+        {/* Table Body */}
+        <tbody className="divide-y divide-gray-200">
+          {analytics.salespersonPerformance.map((person, idx) => {
+            const isTopPerformer = idx === 0;
+            const profitMargin =
+              person.revenue > 0 ? (person.profit / person.revenue) * 100 : 0;
+
+            return (
+              <tr
+                key={idx}
+                className={`hover:bg-gray-50 transition ${
+                  isTopPerformer ? "bg-gray-100" : ""
+                }`}
+              >
+                {/* Name */}
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                        isTopPerformer
+                          ? "bg-gray-500"
+                          : "bg-gray-300"
+                      }`}
+                    >
+                      <span className="text-sm font-semibold text-white">
+                        {person.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">
+                        {person.name}
+                      </p>
+                      {isTopPerformer && (
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-700 font-medium">
+                          <Award size={12} /> Top Performer
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </td>
+
+                {/* Transactions */}
+                <td className="px-6 py-4 text-center">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800">
+                    {person.transactions}
+                  </span>
+                </td>
+
+                {/* Revenue */}
+                <td className="px-6 py-4 text-right">
+                  <span className="text-sm font-semibold text-gray-900">
+                    ₹{person.revenue.toLocaleString()}
+                  </span>
+                </td>
+
+                {/* Profit */}
+                <td className="px-6 py-4 text-right">
+                  <span className="text-sm font-semibold text-gray-700">
+                    ₹{person.profit.toLocaleString()}
+                  </span>
+                </td>
+
+                {/* Avg Transaction */}
+                <td className="px-6 py-4 text-right">
+                  <span className="text-sm text-gray-700">
+                    ₹{person.avgTransactionValue.toLocaleString(undefined, {
+                      maximumFractionDigits: 0,
+                    })}
+                  </span>
+                </td>
+
+                {/* Performance */}
+                <td className="px-6 py-4 text-center">
+                  <div className="flex flex-col items-center gap-1">
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="h-2 rounded-full bg-gray-500"
+                        style={{
+                          width: `${Math.min(profitMargin * 2, 100)}%`,
+                        }}
+                      />
+                    </div>
+                    <span className="text-xs text-gray-600">
+                      {profitMargin.toFixed(1)}% margin
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+
+    {/* Footer Summary */}
+    <div className="p-4 bg-gray-50 border-t border-gray-200">
+      <div className="grid grid-cols-4 gap-4 text-center">
+        <div>
+          <p className="text-xs text-gray-600 font-medium">Total Transactions</p>
+          <p className="text-lg font-bold text-gray-900">
+            {analytics.salespersonPerformance.reduce(
+              (sum, p) => sum + p.transactions,
+              0
+            )}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs text-gray-600 font-medium">Total Revenue</p>
+          <p className="text-lg font-bold text-gray-900">
+            ₹
+            {analytics.salespersonPerformance
+              .reduce((sum, p) => sum + p.revenue, 0)
+              .toLocaleString()}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs text-gray-600 font-medium">Total Profit</p>
+          <p className="text-lg font-bold text-gray-700">
+            ₹
+            {analytics.salespersonPerformance
+              .reduce((sum, p) => sum + p.profit, 0)
+              .toLocaleString()}
+          </p>
+        </div>
+
+        <div>
+          <p className="text-xs text-gray-600 font-medium">Total Items Sold</p>
+          <p className="text-lg font-bold text-gray-900">
+            {analytics.salespersonPerformance.reduce(
+              (sum, p) => sum + p.quantity,
+              0
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+      
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Revenue by Product</h2>
@@ -490,7 +708,6 @@ const AnalyticsDashboard = () => {
           </div>
         </div>
       </div>
-   
     </div>
   );
 };

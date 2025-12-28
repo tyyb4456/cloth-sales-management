@@ -44,7 +44,7 @@ const FinancialDashboard = () => {
             const data = await response.json();
             return { ...data, label: m.label };
           } catch (error) {
-            return { 
+            return {
               total_revenue: 0,
               total_profit: 0,
               total_expenses: 0,
@@ -139,7 +139,18 @@ const FinancialDashboard = () => {
     }
   };
 
-  const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444'];
+  const COLORS = [
+    '#5f6388', // balanced indigo
+    '#8b7fb5', // medium lavender
+    '#5f9a8d', // teal
+    '#c2a46b', // warm sand
+    '#b56f6f', // muted red
+    '#5f8fa3', // blue-teal
+    '#8fa06a'  // olive green
+  ];
+
+
+
 
   const KPICard = ({ title, value, growth, icon: Icon, color, prefix = '₹' }) => (
     <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
@@ -154,11 +165,10 @@ const FinancialDashboard = () => {
               {growth > 0 ? (
                 <ArrowUp className="w-4 h-4 text-green-600" />
               ) : growth < 0 ? (
-                <ArrowDown className="w-4 h-4 text-red-600" />
+                <ArrowDown className="w-4 h-4 text-gray-600" />
               ) : null}
-              <span className={`text-sm font-medium ${
-                growth > 0 ? 'text-green-600' : growth < 0 ? 'text-red-600' : 'text-gray-600'
-              }`}>
+              <span className={`text-sm font-medium ${growth > 0 ? 'text-green-200' : growth < 0 ? 'text-gray-600' : 'text-gray-600'
+                }`}>
                 {Math.abs(growth).toFixed(1)}%
               </span>
               <span className="text-xs text-gray-500">vs last month</span>
@@ -205,28 +215,28 @@ const FinancialDashboard = () => {
             value={dashboardData.kpis.revenue?.value || 0}
             growth={dashboardData.kpis.revenue?.growth}
             icon={DollarSign}
-            color="bg-blue-500"
+            color="bg-gray-500"
           />
           <KPICard
             title="Total Expenses"
             value={dashboardData.kpis.expenses?.value || 0}
             growth={dashboardData.kpis.expenses?.growth}
             icon={TrendingDown}
-            color="bg-red-500"
+            color="bg-gray-500"
           />
           <KPICard
             title="Gross Profit"
             value={dashboardData.kpis.profit?.value || 0}
             growth={dashboardData.kpis.profit?.growth}
             icon={TrendingUp}
-            color="bg-green-500"
+            color="bg-gray-500"
           />
           <KPICard
             title="Net Income"
             value={dashboardData.kpis.netIncome?.value || 0}
             growth={dashboardData.kpis.netIncome?.growth}
             icon={Activity}
-            color="bg-purple-500"
+            color="bg-gray-500"
           />
         </div>
 
@@ -237,12 +247,12 @@ const FinancialDashboard = () => {
             <AreaChart data={dashboardData.monthlyTrends}>
               <defs>
                 <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
                 </linearGradient>
                 <linearGradient id="colorExpenses" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8}/>
-                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                  <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -269,7 +279,7 @@ const FinancialDashboard = () => {
               <Area
                 type="monotone"
                 dataKey="expenses"
-                stroke="#ef4444"
+                stroke="#e66730"
                 fillOpacity={1}
                 fill="url(#colorExpenses)"
                 name="Expenses"
@@ -300,7 +310,7 @@ const FinancialDashboard = () => {
                 <Line
                   type="monotone"
                   dataKey="profit"
-                  stroke="#10b981"
+                  stroke="#0f805a"
                   strokeWidth={3}
                   dot={{ fill: '#10b981', r: 5 }}
                   activeDot={{ r: 7 }}
@@ -309,7 +319,7 @@ const FinancialDashboard = () => {
                 <Line
                   type="monotone"
                   dataKey="netIncome"
-                  stroke="#8b5cf6"
+                  stroke="#7d68ab"
                   strokeWidth={3}
                   dot={{ fill: '#8b5cf6', r: 5 }}
                   activeDot={{ r: 7 }}
@@ -367,10 +377,11 @@ const FinancialDashboard = () => {
                 }}
                 formatter={(value) => `₹${value.toLocaleString()}`}
               />
-              <Legend />
-              <Bar dataKey="revenue" fill="#3b82f6" name="Revenue" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="expenses" fill="#ef4444" name="Expenses" radius={[8, 8, 0, 0]} />
-              <Bar dataKey="netIncome" fill="#10b981" name="Net Income" radius={[8, 8, 0, 0]} />
+              {/* <Legend /> */}
+              <Bar dataKey="revenue" fill="#5f8fa3" name="Revenue" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="expenses" fill="#b56f6f" name="Expenses" radius={[8, 8, 0, 0]} />
+              <Bar dataKey="netIncome" fill="#5f9a8d" name="Net Income" radius={[8, 8, 0, 0]} />
+
             </BarChart>
           </ResponsiveContainer>
         </div>
