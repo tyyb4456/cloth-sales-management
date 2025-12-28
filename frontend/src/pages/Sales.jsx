@@ -3,6 +3,25 @@ import { Plus, Calendar, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getVarieties, createSale, getSalesByDate, deleteSale } from '../api/api';
 
+// Helper function to format quantity with unit
+const formatQuantityWithUnit = (quantity, unit) => {
+  const qty = parseFloat(quantity);
+  if (unit === 'meters') {
+    // Show decimal places only if needed
+    return qty % 1 === 0 ? `${qty}m` : `${qty.toFixed(2)}m`;
+  }
+  if (unit === 'yards') {
+    return qty % 1 === 0 ? `${qty}y` : `${qty.toFixed(2)}y`;
+  }
+  return Math.floor(qty); // pieces - no decimals, no unit
+};
+
+// Helper function to get item count (1 for meters/yards, actual quantity for pieces)
+const getItemCount = (quantity, unit) => {
+  if (unit === 'meters' || unit === 'yards') return 1;
+  return parseFloat(quantity);
+};
+
 export default function Sales() {
   const [varieties, setVarieties] = useState([]);
   const [sales, setSales] = useState([]);
@@ -19,12 +38,13 @@ export default function Sales() {
   });
   const [varietySearch, setVarietySearch] = useState('');
   const [showVarietyDropdown, setShowVarietyDropdown] = useState(false);
+  const [selectedVariety, setSelectedVariety] = useState(null);
+
   useEffect(() => {
     const handler = () => setShowVarietyDropdown(false);
     window.addEventListener('click', handler);
     return () => window.removeEventListener('click', handler);
   }, []);
-
 
   useEffect(() => {
     loadVarieties();
@@ -67,7 +87,9 @@ export default function Sales() {
         selling_price: parseFloat(formData.selling_price),
         cost_price: parseFloat(formData.cost_price)
       });
+
       setVarietySearch('');
+      setSelectedVariety(null);
       setFormData({
         salesperson_name: '',
         variety_id: '',
@@ -101,10 +123,22 @@ export default function Sales() {
   const totalSales = Array.isArray(sales) ? sales.reduce((sum, item) => sum + (parseFloat(item.selling_price) * item.quantity), 0) : 0;
   const totalProfit = Array.isArray(sales) ? sales.reduce((sum, item) => sum + parseFloat(item.profit), 0) : 0;
 
+  // Calculate total items sold (1 for meters/yards, actual quantity for pieces)
+  const totalItemsSold = Array.isArray(sales) ? sales.reduce((sum, item) => {
+    return sum + getItemCount(item.quantity, item.variety.measurement_unit);
+  }, 0) : 0;
 
   const filteredVarieties = varieties.filter(v =>
     v.name.toLowerCase().includes(varietySearch.toLowerCase())
   );
+
+  // Get unit label for selected variety
+  const getUnitLabel = () => {
+    if (!selectedVariety) return '';
+    if (selectedVariety.measurement_unit === 'meters') return 'm';
+    if (selectedVariety.measurement_unit === 'yards') return 'y';
+    return '';
+  };
 
   return (
     <div>
@@ -124,7 +158,6 @@ export default function Sales() {
             />
           </div>
 
-          {/* Action Button */}
           <button
             onClick={() => setShowForm(!showForm)}
             className="flex items-center px-5 py-2.5 rounded-lg
@@ -151,9 +184,8 @@ export default function Sales() {
             {/* Salesperson Name */}
             <div className="relative w-full">
               <label className="block mb-1 text-sm font-medium text-gray-700">
-                Salesperson Name
+                Salesperson Name *
               </label>
-
               <select
                 required
                 value={formData.salesperson_name}
@@ -161,27 +193,23 @@ export default function Sales() {
                   setFormData({ ...formData, salesperson_name: e.target.value })
                 }
                 className="w-full px-4 py-3 text-gray-900 bg-white
-      border border-gray-300 rounded-lg
-      focus:outline-none focus:border-gray-500
-      focus:ring-2 focus:ring-gray-500/20
-      transition-all duration-300"
+                  border border-gray-300 rounded-lg
+                  focus:outline-none focus:border-gray-500
+                  focus:ring-2 focus:ring-gray-500/20
+                  transition-all duration-300"
               >
-                <option value="" disabled>
-                  Select Salesperson
-                </option>
+                <option value="" disabled>Select Salesperson</option>
                 <option value="shahzad">shahzad</option>
                 <option value="zulifqar">zulifqar</option>
                 <option value="kashif">kashif</option>
               </select>
             </div>
 
-
-            {/* Cloth Variety (Searchable) */}
+            {/* Cloth Variety */}
             <div className="relative w-full">
               <label className="block mb-1 text-sm font-medium text-gray-700">
-                Cloth Variety
+                Cloth Variety *
               </label>
-
               <input
                 type="text"
                 required
@@ -193,22 +221,17 @@ export default function Sales() {
                 onFocus={() => setShowVarietyDropdown(true)}
                 placeholder="Search cloth variety..."
                 className="w-full px-4 py-3 text-gray-900 bg-white
-      border border-gray-300 rounded-lg
-      focus:outline-none focus:border-gray-500
-      focus:ring-2 focus:ring-gray-500/20"
+                  border border-gray-300 rounded-lg
+                  focus:outline-none focus:border-gray-500
+                  focus:ring-2 focus:ring-gray-500/20"
               />
 
               {showVarietyDropdown && (
-                <div
-                  className="absolute z-20 mt-1 w-full
-        max-h-56 overflow-y-auto
-        bg-white border border-gray-200
-        rounded-lg shadow-lg"
+                <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto
+                  bg-white border border-gray-200 rounded-lg shadow-lg"
                 >
                   {filteredVarieties.length === 0 ? (
-                    <div className="px-4 py-2 text-gray-500">
-                      No varieties found
-                    </div>
+                    <div className="px-4 py-2 text-gray-500">No varieties found</div>
                   ) : (
                     filteredVarieties.map((v) => (
                       <div
@@ -216,55 +239,62 @@ export default function Sales() {
                         onClick={() => {
                           setFormData({ ...formData, variety_id: v.id });
                           setVarietySearch(v.name);
+                          setSelectedVariety(v);
                           setShowVarietyDropdown(false);
                         }}
-                        className="px-4 py-2 cursor-pointer
-              hover:bg-gray-100 transition"
+                        className="px-4 py-2 cursor-pointer hover:bg-gray-100 transition"
                       >
-                        {v.name}
+                        <div className="font-medium">{v.name}</div>
+                        <div className="text-xs text-gray-500 capitalize">
+                          {v.measurement_unit}
+                        </div>
                       </div>
                     ))
                   )}
                 </div>
               )}
-
-              <label
-                className="absolute left-4 top-4 text-gray-500
-                   pointer-events-none transition-all duration-300
-                   peer-focus:top-1 peer-focus:text-sm
-                   peer-not-[value='']:top-1 peer-not-[value='']:text-sm"
-              >
-
-              </label>
             </div>
 
-            {/* Quantity */}
+            {/* Quantity with unit */}
             <div className="relative w-full">
               <label className="block mb-1 text-sm font-medium text-gray-700">
-                Quantity
+                Quantity {selectedVariety && `(${selectedVariety.measurement_unit})`} *
               </label>
-              <input
-                type="number"
-                required
-                placeholder=" "
-                className="peer w-full px-4 pt-6 pb-2 text-gray-900 bg-white
-      border border-gray-300 rounded-lg
-      focus:outline-none focus:border-gray-500
-      focus:ring-2 focus:ring-gray-500/20"
-                value={formData.quantity}
-                onChange={(e) =>
-                  setFormData({ ...formData, quantity: e.target.value })
-                }
-              />
-
+              <div className="relative">
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  step={selectedVariety?.measurement_unit !== 'pieces' ? '0.01' : '1'}
+                  placeholder={selectedVariety?.measurement_unit === 'meters' ? 'Length in meters' :
+                    selectedVariety?.measurement_unit === 'yards' ? 'Length in yards' :
+                      'Number of pieces'}
+                  className="peer w-full px-4 py-3 text-gray-900 bg-white
+                    border border-gray-300 rounded-lg
+                    focus:outline-none focus:border-gray-500
+                    focus:ring-2 focus:ring-gray-500/20"
+                  value={formData.quantity}
+                  onChange={(e) =>
+                    setFormData({ ...formData, quantity: e.target.value })
+                  }
+                />
+                {selectedVariety && getUnitLabel() && (
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+                    {getUnitLabel()}
+                  </span>
+                )}
+              </div>
+              {selectedVariety && (selectedVariety.measurement_unit === 'meters' || selectedVariety.measurement_unit === 'yards') && (
+                <p className="text-xs text-blue-600 mt-1">
+                  This will count as 1 item in inventory
+                </p>
+              )}
             </div>
 
-
-            {/* Cost Price */}
+            {/* Total Cost Price */}
             <div className="relative w-full">
-
               <label className="block mb-1 text-sm font-medium text-gray-700">
-                Cost Price
+                Total Cost Price (₹) *
               </label>
               <input
                 type="number"
@@ -275,20 +305,24 @@ export default function Sales() {
                 onChange={(e) =>
                   setFormData({ ...formData, cost_price: e.target.value })
                 }
-                placeholder=" "
-                className="peer w-full px-4 pt-6 pb-2 text-gray-900 bg-white
-                   border border-gray-300 rounded-lg
-                   focus:outline-none focus:border-gray-500
-                   focus:ring-2 focus:ring-gray-500/20
-                   transition-all duration-300"
+                placeholder="Total cost for all items"
+                className="peer w-full px-4 py-3 text-gray-900 bg-white
+                  border border-gray-300 rounded-lg
+                  focus:outline-none focus:border-gray-500
+                  focus:ring-2 focus:ring-gray-500/20
+                  transition-all duration-300"
               />
-
+              {formData.quantity && formData.cost_price && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Per unit: ₹{(parseFloat(formData.cost_price) / parseInt(formData.quantity)).toFixed(2)}
+                </p>
+              )}
             </div>
 
-            {/* Selling Price */}
+            {/* Total Selling Price */}
             <div className="relative w-full">
               <label className="block mb-1 text-sm font-medium text-gray-700">
-                Selling Price
+                Total Selling Price (₹) *
               </label>
               <input
                 type="number"
@@ -299,17 +333,25 @@ export default function Sales() {
                 onChange={(e) =>
                   setFormData({ ...formData, selling_price: e.target.value })
                 }
-                placeholder=" "
-                className="peer w-full px-4 pt-6 pb-2 text-gray-900 bg-white
-                   border border-gray-300 rounded-lg
-                   focus:outline-none focus:border-gray-500
-                   focus:ring-2 focus:ring-gray-500/20
-                   transition-all duration-300"
+                placeholder="Total selling price for all items"
+                className="peer w-full px-4 py-3 text-gray-900 bg-white
+                  border border-gray-300 rounded-lg
+                  focus:outline-none focus:border-gray-500
+                  focus:ring-2 focus:ring-gray-500/20
+                  transition-all duration-300"
               />
+              {formData.quantity && formData.selling_price && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Per unit: ₹{(parseFloat(formData.selling_price) / parseInt(formData.quantity)).toFixed(2)}
+                </p>
+              )}
             </div>
 
             {/* Sale Date */}
             <div className="relative w-full">
+              <label className="block mb-1 text-sm font-medium text-gray-700">
+                Sale Date *
+              </label>
               <input
                 type="date"
                 required
@@ -318,36 +360,50 @@ export default function Sales() {
                   setFormData({ ...formData, sale_date: e.target.value })
                 }
                 className="w-full px-4 py-3 text-gray-900 bg-white
-                   border border-gray-300 rounded-lg
-                   focus:outline-none focus:border-gray-500
-                   focus:ring-2 focus:ring-gray-500/20
-                   transition-all duration-300"
+                  border border-gray-300 rounded-lg
+                  focus:outline-none focus:border-gray-500
+                  focus:ring-2 focus:ring-gray-500/20
+                  transition-all duration-300"
               />
             </div>
+
+            {/* Total Profit Preview */}
+            {formData.quantity && formData.cost_price && formData.selling_price && (
+              <div className="md:col-span-2 p-4 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm font-medium text-green-800">
+                  Expected Total Profit: ₹{(parseFloat(formData.selling_price) - parseFloat(formData.cost_price)).toFixed(2)}
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  Per unit profit: ₹{((parseFloat(formData.selling_price) - parseFloat(formData.cost_price)) / parseInt(formData.quantity)).toFixed(2)}
+                </p>
+              </div>
+            )}
 
             {/* Actions */}
             <div className="md:col-span-2 flex gap-3 pt-2">
               <button
                 type="submit"
                 className="px-6 py-3 rounded-lg bg-gray-600 text-white font-medium
-                   transition-all duration-300
-                   hover:bg-gray-700 hover:-translate-y-0.5 hover:shadow-lg"
+                  transition-all duration-300
+                  hover:bg-gray-700 hover:-translate-y-0.5 hover:shadow-lg"
               >
                 Record Sale
               </button>
 
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false);
+                  setSelectedVariety(null);
+                }}
                 className="px-6 py-3 rounded-lg border border-gray-300
-                   text-gray-700 hover:bg-gray-100 transition"
+                  text-gray-700 hover:bg-gray-100 transition"
               >
                 Cancel
               </button>
             </div>
           </form>
         </div>
-
       )}
 
       <div className="card p-6">
@@ -368,10 +424,10 @@ export default function Sales() {
                     <th className="px-4 py-3 text-left font-semibold">Salesperson</th>
                     <th className="px-4 py-3 text-left font-semibold">Variety</th>
                     <th className="px-4 py-3 text-center font-semibold">Qty</th>
-                    <th className="px-4 py-3 text-right font-semibold">Cost</th>
-                    <th className="px-4 py-3 text-right font-semibold">Selling</th>
-                    <th className="px-4 py-3 text-right font-semibold">Profit</th>
-                    <th className="px-4 py-3 text-right font-semibold">Total</th>
+                    <th className="px-4 py-3 text-right font-semibold">Cost/Unit</th>
+                    <th className="px-4 py-3 text-right font-semibold">Price/Unit</th>
+                    <th className="px-4 py-3 text-right font-semibold">Total Profit</th>
+                    <th className="px-4 py-3 text-right font-semibold">Total Sale</th>
                     <th className="px-4 py-3 text-center font-semibold">Time</th>
                     <th className="px-4 py-3 text-center font-semibold">Actions</th>
                   </tr>
@@ -387,8 +443,15 @@ export default function Sales() {
                       <td className="px-4 py-3 font-medium text-gray-800">
                         {item.salesperson_name}
                       </td>
-                      <td className="px-4 py-3">{item.variety.name}</td>
-                      <td className="px-4 py-3 text-center">{item.quantity}</td>
+                      <td className="px-4 py-3">
+                        <div>{item.variety.name}</div>
+                        <div className="text-xs text-gray-500 capitalize">
+                          {item.variety.measurement_unit}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center font-medium">
+                        {formatQuantityWithUnit(item.quantity, item.variety.measurement_unit)}
+                      </td>
                       <td className="px-4 py-3 text-right">
                         ₹{parseFloat(item.cost_price).toFixed(2)}
                       </td>
@@ -422,20 +485,23 @@ export default function Sales() {
             </div>
 
             {/* Totals */}
-            <div className="mt-6 pt-4 border-t flex justify-between items-center">
-              <div className="text-lg font-semibold">
-                Total Sales:{" "}
-                <span className="text-gray-800">₹{totalSales.toFixed(2)}</span>
+            <div className="mt-6 pt-4 border-t grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center md:text-left">
+                <p className="text-sm text-gray-600 mb-1">Items Sold</p>
+                <p className="text-2xl font-bold text-gray-800">{totalItemsSold}</p>
               </div>
-              <div className="text-lg font-semibold">
-                Total Profit:{" "}
-                <span className="text-green-600">₹{totalProfit.toFixed(2)}</span>
+              <div className="text-center">
+                <p className="text-sm text-gray-600 mb-1">Total Sales</p>
+                <p className="text-2xl font-bold text-gray-800">₹{totalSales.toFixed(2)}</p>
+              </div>
+              <div className="text-center md:text-right">
+                <p className="text-sm text-gray-600 mb-1">Total Profit</p>
+                <p className="text-2xl font-bold text-green-600">₹{totalProfit.toFixed(2)}</p>
               </div>
             </div>
           </>
         )}
       </div>
-
     </div>
   );
 }

@@ -4,6 +4,28 @@ import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Package, Award, Ale
 
 const API_BASE_URL = 'http://localhost:8000';
 
+// Helper function to get item count
+const getItemCount = (quantity, unit) => {
+  if (unit === 'meters' || unit === 'yards') return 1;
+  return parseFloat(quantity);
+};
+
+// Helper to format quantity with unit
+const formatQuantityWithUnit = (quantity, unit) => {
+  const qty = parseFloat(quantity);
+  // For meters/yards, show decimals if present
+  if (unit === 'meters') {
+    const formatted = qty % 1 === 0 ? qty.toString() : qty.toFixed(2);
+    return `${formatted}m`;
+  }
+  if (unit === 'yards') {
+    const formatted = qty % 1 === 0 ? qty.toString() : qty.toFixed(2);
+    return `${formatted}y`;
+  }
+  // For pieces, always show as integer
+  return Math.floor(qty);
+};
+
 const getDateRange = (days) => {
   const end = new Date();
   const start = new Date();
@@ -17,7 +39,7 @@ const getDateRange = (days) => {
 const fetchRealAnalytics = async (days) => {
   try {
     const { startDate, endDate } = getDateRange(days);
-    
+
     const [salesRes, inventoryRes, returnsRes, varietiesRes] = await Promise.all([
       fetch(`${API_BASE_URL}/sales/`),
       fetch(`${API_BASE_URL}/supplier/inventory`),
@@ -51,35 +73,48 @@ const fetchRealAnalytics = async (days) => {
       return date >= new Date(startDate) && date <= new Date(endDate);
     });
 
+    // Create variety map for quick lookup
+    const varietyMap = {};
+    varieties.forEach(v => {
+      varietyMap[v.id] = v;
+    });
+
     // Calculate KPIs
-    const totalRevenue = sales.reduce((sum, sale) => 
+    const totalRevenue = sales.reduce((sum, sale) =>
       sum + parseFloat(sale.selling_price) * sale.quantity, 0
     );
-    
-    const totalProfit = sales.reduce((sum, sale) => 
+
+    const totalProfit = sales.reduce((sum, sale) =>
       sum + parseFloat(sale.profit), 0
     );
-    
+
     const totalSales = sales.length;
+
+    // Calculate smart item count
+    const totalItemsSold = sales.reduce((sum, sale) => {
+      const variety = varietyMap[sale.variety_id];
+      return sum + getItemCount(sale.quantity, variety?.measurement_unit || 'pieces');
+    }, 0);
+
     const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
     const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
     // Calculate growth rate
     const midDate = new Date(startDate);
     midDate.setDate(midDate.getDate() + Math.floor(days / 2));
-    
+
     const firstHalfSales = sales.filter(s => new Date(s.sale_date) < midDate);
     const secondHalfSales = sales.filter(s => new Date(s.sale_date) >= midDate);
-    
-    const firstHalfRevenue = firstHalfSales.reduce((sum, s) => 
+
+    const firstHalfRevenue = firstHalfSales.reduce((sum, s) =>
       sum + parseFloat(s.selling_price) * s.quantity, 0
     );
-    const secondHalfRevenue = secondHalfSales.reduce((sum, s) => 
+    const secondHalfRevenue = secondHalfSales.reduce((sum, s) =>
       sum + parseFloat(s.selling_price) * s.quantity, 0
     );
-    
-    const growthRate = firstHalfRevenue > 0 
-      ? ((secondHalfRevenue - firstHalfRevenue) / firstHalfRevenue) * 100 
+
+    const growthRate = firstHalfRevenue > 0
+      ? ((secondHalfRevenue - firstHalfRevenue) / firstHalfRevenue) * 100
       : 0;
 
     // Generate sales trend data
@@ -93,41 +128,52 @@ const fetchRealAnalytics = async (days) => {
       salesByDate[date].profit += parseFloat(sale.profit);
       salesByDate[date].sales += 1;
     });
-    
-    const salesData = Object.values(salesByDate).sort((a, b) => 
+
+    const salesData = Object.values(salesByDate).sort((a, b) =>
       new Date(a.date) - new Date(b.date)
     );
 
-    // Calculate top products
+    // Calculate top products with smart item counting
     const productStats = {};
     sales.forEach(sale => {
-      const variety = varieties.find(v => v.id === sale.variety_id);
+      const variety = varietyMap[sale.variety_id];
       const name = variety ? variety.name : `Product ${sale.variety_id}`;
-      
+
       if (!productStats[name]) {
-        productStats[name] = { name, revenue: 0, profit: 0, quantity: 0, margin: 0 };
+        productStats[name] = {
+          name,
+          revenue: 0,
+          profit: 0,
+          quantity: 0,
+          items_sold: 0,
+          measurement_unit: variety?.measurement_unit || 'pieces',
+          margin: 0
+        };
       }
-      
+
       const revenue = parseFloat(sale.selling_price) * sale.quantity;
       const profit = parseFloat(sale.profit);
-      
+
       productStats[name].revenue += revenue;
       productStats[name].profit += profit;
       productStats[name].quantity += sale.quantity;
+      productStats[name].items_sold += getItemCount(sale.quantity, variety?.measurement_unit || 'pieces');
     });
-    
+
     Object.values(productStats).forEach(product => {
       product.margin = product.revenue > 0 ? (product.profit / product.revenue) * 100 : 0;
     });
-    
+
     const topProducts = Object.values(productStats)
       .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5);
+      .slice(0, 10); // TOP 10 products
 
-    // Calculate salesperson performance
+    // Calculate salesperson performance with smart item counting
     const salespersonStats = {};
     sales.forEach(sale => {
+      const variety = varietyMap[sale.variety_id];
       const name = sale.salesperson_name;
+
       if (!salespersonStats[name]) {
         salespersonStats[name] = {
           name,
@@ -135,32 +181,33 @@ const fetchRealAnalytics = async (days) => {
           revenue: 0,
           profit: 0,
           quantity: 0,
+          items_sold: 0,
           avgTransactionValue: 0
         };
       }
-      
+
       const revenue = parseFloat(sale.selling_price) * sale.quantity;
       const profit = parseFloat(sale.profit);
-      
+
       salespersonStats[name].transactions += 1;
       salespersonStats[name].revenue += revenue;
       salespersonStats[name].profit += profit;
       salespersonStats[name].quantity += sale.quantity;
+      salespersonStats[name].items_sold += getItemCount(sale.quantity, variety?.measurement_unit || 'pieces');
     });
-    
-    // Calculate average transaction value for each salesperson
+
     Object.values(salespersonStats).forEach(person => {
-      person.avgTransactionValue = person.transactions > 0 
-        ? person.revenue / person.transactions 
+      person.avgTransactionValue = person.transactions > 0
+        ? person.revenue / person.transactions
         : 0;
     });
-    
+
     const salespersonPerformance = Object.values(salespersonStats)
       .sort((a, b) => b.revenue - a.revenue);
 
     // Calculate supplier performance
     const supplierStats = {};
-    
+
     inventory.forEach(inv => {
       const name = inv.supplier_name;
       if (!supplierStats[name]) {
@@ -168,7 +215,7 @@ const fetchRealAnalytics = async (days) => {
       }
       supplierStats[name].totalSupply += parseFloat(inv.total_amount);
     });
-    
+
     returns.forEach(ret => {
       const name = ret.supplier_name;
       if (!supplierStats[name]) {
@@ -176,14 +223,14 @@ const fetchRealAnalytics = async (days) => {
       }
       supplierStats[name].returns += parseFloat(ret.total_amount);
     });
-    
+
     Object.values(supplierStats).forEach(supplier => {
       supplier.netAmount = supplier.totalSupply - supplier.returns;
-      supplier.reliability = supplier.totalSupply > 0 
-        ? ((supplier.totalSupply - supplier.returns) / supplier.totalSupply) * 100 
+      supplier.reliability = supplier.totalSupply > 0
+        ? ((supplier.totalSupply - supplier.returns) / supplier.totalSupply) * 100
         : 100;
     });
-    
+
     const suppliers = Object.values(supplierStats)
       .sort((a, b) => b.netAmount - a.netAmount)
       .slice(0, 5);
@@ -204,6 +251,7 @@ const fetchRealAnalytics = async (days) => {
         totalRevenue: Math.round(totalRevenue),
         totalProfit: Math.round(totalProfit),
         totalSales,
+        totalItemsSold,
         avgOrderValue: Math.round(avgOrderValue),
         growthRate: parseFloat(growthRate.toFixed(1)),
         profitMargin: parseFloat(profitMargin.toFixed(1)),
@@ -274,7 +322,7 @@ const AnalyticsDashboard = () => {
     );
   }
 
-  const COLORS = ['#6e647a', '#ba77b2', '#8dba77', '#2f6933', '#735945'];
+  const COLORS = ['#6e647a', '#ba77b2', '#8dba77', '#2f6933', '#735945', '#9b7c6f', '#6a8ba3', '#b58d6f', '#7a9b6e', '#8b6e9b'];
 
   const KPICard = ({ title, value, subtitle, icon: Icon, trend, color }) => (
     <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition">
@@ -317,9 +365,8 @@ const AnalyticsDashboard = () => {
               <button
                 key={days}
                 onClick={() => setTimeRange(days)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-                  timeRange === days ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-                }`}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition ${timeRange === days ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+                  }`}
               >
                 {days} Days
               </button>
@@ -353,14 +400,15 @@ const AnalyticsDashboard = () => {
             color="bg-gray-400"
           />
           <KPICard
-            title="Top Product"
-            value={analytics.kpis.topProduct}
-            subtitle={`${analytics.kpis.topProductShare.toFixed(1)}% of sales`}
-            icon={Award}
+            title="Items Sold"
+            value={analytics.kpis.totalItemsSold}
+            subtitle={`${analytics.kpis.topProduct}`}
+            icon={Package}
             color="bg-gray-400"
           />
         </div>
 
+        {/* Continue with rest of charts... */}
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Sales Trend</h2>
           {analytics.salesData.length > 0 ? (
@@ -369,9 +417,9 @@ const AnalyticsDashboard = () => {
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" stroke="#765496" style={{ fontSize: '12px' }} />
                 <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: '#fff', 
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
                     border: '1px solid #e5e7eb',
                     borderRadius: '8px',
                     padding: '12px'
@@ -387,194 +435,146 @@ const AnalyticsDashboard = () => {
           )}
         </div>
 
-{/* Salesperson Performance Table */}
-{analytics.salespersonPerformance && analytics.salespersonPerformance.length > 0 && (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
-    
-    {/* Header */}
-    <div className="p-6 border-b border-gray-200 bg-linear-to-r from-gray-50 to-gray-100">
-      <div className="flex items-center gap-3">
-        <Users className="w-6 h-6 text-gray-600" />
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">
-            Salesperson Performance
-          </h2>
-          <p className="text-sm text-gray-600">
-            Individual sales team metrics and achievements
-          </p>
-        </div>
-      </div>
-    </div>
+        {/* Salesperson Performance - ENHANCED */}
+        {analytics.salespersonPerformance && analytics.salespersonPerformance.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+            <div className="p-6 border-b border-gray-200 bg-linear-to-r from-gray-50 to-gray-100">
+              <div className="flex items-center gap-3">
+                <Users className="w-6 h-6 text-gray-600" />
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Salesperson Performance</h2>
+                  <p className="text-sm text-gray-600">Individual sales team metrics and achievements</p>
+                </div>
+              </div>
+            </div>
 
-    <div className="overflow-x-auto">
-      <table className="w-full">
-        
-        {/* Table Head */}
-        <thead className="bg-gray-50 border-b border-gray-200">
-          <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">
-              Salesperson
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">
-              Transactions
-            </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">
-              Total Revenue
-            </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">
-              Total Profit
-            </th>
-            <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">
-              Avg Transaction
-            </th>
-            <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">
-              Performance
-            </th>
-          </tr>
-        </thead>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Salesperson</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Transactions</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Items Sold</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total Revenue</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Total Profit</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Avg Transaction</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Performance</th>
+                  </tr>
+                </thead>
 
-        {/* Table Body */}
-        <tbody className="divide-y divide-gray-200">
-          {analytics.salespersonPerformance.map((person, idx) => {
-            const isTopPerformer = idx === 0;
-            const profitMargin =
-              person.revenue > 0 ? (person.profit / person.revenue) * 100 : 0;
+                <tbody className="divide-y divide-gray-200">
+                  {analytics.salespersonPerformance.map((person, idx) => {
+                    const isTopPerformer = idx === 0;
+                    const profitMargin = person.revenue > 0 ? (person.profit / person.revenue) * 100 : 0;
 
-            return (
-              <tr
-                key={idx}
-                className={`hover:bg-gray-50 transition ${
-                  isTopPerformer ? "bg-gray-100" : ""
-                }`}
-              >
-                {/* Name */}
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                        isTopPerformer
-                          ? "bg-gray-500"
-                          : "bg-gray-300"
-                      }`}
-                    >
-                      <span className="text-sm font-semibold text-white">
-                        {person.name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {person.name}
-                      </p>
-                      {isTopPerformer && (
-                        <span className="inline-flex items-center gap-1 text-xs text-gray-700 font-medium">
-                          <Award size={12} /> Top Performer
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </td>
+                    return (
+                      <tr key={idx} className={`hover:bg-gray-50 transition ${isTopPerformer ? "bg-gray-100" : ""}`}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isTopPerformer ? "bg-gray-500" : "bg-gray-300"
+                              }`}>
+                              <span className="text-sm font-semibold text-white">
+                                {person.name.charAt(0).toUpperCase()}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{person.name}</p>
+                              {isTopPerformer && (
+                                <span className="inline-flex items-center gap-1 text-xs text-gray-700 font-medium">
+                                  <Award size={12} /> Top Performer
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
 
-                {/* Transactions */}
-                <td className="px-6 py-4 text-center">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800">
-                    {person.transactions}
-                  </span>
-                </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-200 text-gray-800">
+                            {person.transactions}
+                          </span>
+                        </td>
 
-                {/* Revenue */}
-                <td className="px-6 py-4 text-right">
-                  <span className="text-sm font-semibold text-gray-900">
-                    ₹{person.revenue.toLocaleString()}
-                  </span>
-                </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                            {person.items_sold}
+                          </span>
+                        </td>
 
-                {/* Profit */}
-                <td className="px-6 py-4 text-right">
-                  <span className="text-sm font-semibold text-gray-700">
-                    ₹{person.profit.toLocaleString()}
-                  </span>
-                </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-semibold text-gray-900">
+                            ₹{person.revenue.toLocaleString()}
+                          </span>
+                        </td>
 
-                {/* Avg Transaction */}
-                <td className="px-6 py-4 text-right">
-                  <span className="text-sm text-gray-700">
-                    ₹{person.avgTransactionValue.toLocaleString(undefined, {
-                      maximumFractionDigits: 0,
-                    })}
-                  </span>
-                </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm font-semibold text-gray-700">
+                            ₹{person.profit.toLocaleString()}
+                          </span>
+                        </td>
 
-                {/* Performance */}
-                <td className="px-6 py-4 text-center">
-                  <div className="flex flex-col items-center gap-1">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="h-2 rounded-full bg-gray-500"
-                        style={{
-                          width: `${Math.min(profitMargin * 2, 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-xs text-gray-600">
-                      {profitMargin.toFixed(1)}% margin
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+                        <td className="px-6 py-4 text-right">
+                          <span className="text-sm text-gray-700">
+                            ₹{person.avgTransactionValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
+                        </td>
 
-    {/* Footer Summary */}
-    <div className="p-4 bg-gray-50 border-t border-gray-200">
-      <div className="grid grid-cols-4 gap-4 text-center">
-        <div>
-          <p className="text-xs text-gray-600 font-medium">Total Transactions</p>
-          <p className="text-lg font-bold text-gray-900">
-            {analytics.salespersonPerformance.reduce(
-              (sum, p) => sum + p.transactions,
-              0
-            )}
-          </p>
-        </div>
+                        <td className="px-6 py-4 text-center">
+                          <div className="flex flex-col items-center gap-1">
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div
+                                className="h-2 rounded-full bg-gray-500"
+                                style={{ width: `${Math.min(profitMargin * 2, 100)}%` }}
+                              />
+                            </div>
+                            <span className="text-xs text-gray-600">
+                              {profitMargin.toFixed(1)}% margin
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-        <div>
-          <p className="text-xs text-gray-600 font-medium">Total Revenue</p>
-          <p className="text-lg font-bold text-gray-900">
-            ₹
-            {analytics.salespersonPerformance
-              .reduce((sum, p) => sum + p.revenue, 0)
-              .toLocaleString()}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-xs text-gray-600 font-medium">Total Profit</p>
-          <p className="text-lg font-bold text-gray-700">
-            ₹
-            {analytics.salespersonPerformance
-              .reduce((sum, p) => sum + p.profit, 0)
-              .toLocaleString()}
-          </p>
-        </div>
-
-        <div>
-          <p className="text-xs text-gray-600 font-medium">Total Items Sold</p>
-          <p className="text-lg font-bold text-gray-900">
-            {analytics.salespersonPerformance.reduce(
-              (sum, p) => sum + p.quantity,
-              0
-            )}
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-)}
-
-      
+            <div className="p-4 bg-gray-50 border-t border-gray-200">
+              <div className="grid grid-cols-5 gap-4 text-center">
+                <div>
+                  <p className="text-xs text-gray-600 font-medium">Total Transactions</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {analytics.salespersonPerformance.reduce((sum, p) => sum + p.transactions, 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 font-medium">Total Items Sold</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    {analytics.salespersonPerformance.reduce((sum, p) => sum + p.items_sold, 0)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 font-medium">Total Revenue</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    ₹{analytics.salespersonPerformance.reduce((sum, p) => sum + p.revenue, 0).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 font-medium">Total Profit</p>
+                  <p className="text-lg font-bold text-gray-700">
+                    ₹{analytics.salespersonPerformance.reduce((sum, p) => sum + p.profit, 0).toLocaleString()}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-600 font-medium">Team Avg</p>
+                  <p className="text-lg font-bold text-gray-900">
+                    ₹{(analytics.salespersonPerformance.reduce((sum, p) => sum + p.avgTransactionValue, 0) /
+                      analytics.salespersonPerformance.length).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
@@ -604,10 +604,10 @@ const AnalyticsDashboard = () => {
           </div>
 
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Top 5 Products by Revenue</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Top 10 Products by Revenue</h2>
             {analytics.topProducts.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={analytics.topProducts} layout="vertical">
+                <BarChart data={analytics.topProducts.slice(0, 10)} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#dfe394" />
                   <XAxis type="number" stroke="#dfe394" style={{ fontSize: '12px' }} />
                   <YAxis dataKey="name" type="category" stroke="#aaad68" style={{ fontSize: '12px' }} width={100} />
@@ -622,9 +622,10 @@ const AnalyticsDashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Product Performance - ENHANCED */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">Product Performance</h2>
+              <h2 className="text-xl font-bold text-gray-900">Product Performance (Top 10)</h2>
             </div>
             <div className="overflow-x-auto">
               {analytics.topProducts.length > 0 ? (
@@ -632,18 +633,27 @@ const AnalyticsDashboard = () => {
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Product</th>
+                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Items Sold</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Revenue</th>
                       <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Margin</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {analytics.topProducts.map((product, idx) => (
+                    {analytics.topProducts.slice(0, 10).map((product, idx) => (
                       <tr key={idx} className="hover:bg-gray-50 transition">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
                             <div className="w-2 h-2 rounded-full mr-3" style={{ backgroundColor: COLORS[idx] }}></div>
-                            <span className="text-sm font-medium text-gray-900">{product.name}</span>
+                            <div>
+                              <span className="text-sm font-medium text-gray-900">{product.name}</span>
+                              <div className="text-xs text-gray-500 capitalize">{product.measurement_unit}</div>
+                            </div>
                           </div>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            {product.items_sold}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
                           ₹{product.revenue.toLocaleString()}
@@ -661,6 +671,7 @@ const AnalyticsDashboard = () => {
             </div>
           </div>
 
+          {/* Supplier Reliability */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="p-6 border-b border-gray-100">
               <h2 className="text-xl font-bold text-gray-900">Supplier Reliability</h2>

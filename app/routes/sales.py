@@ -12,7 +12,7 @@ router = APIRouter(prefix="/sales", tags=["Sales Management"])
 
 @router.post("/", response_model=SaleResponse, status_code=status.HTTP_201_CREATED)
 def create_sale(sale: SaleCreate, db: Session = Depends(get_db)):
-    """Record a new sale"""
+    """Record a new sale - expects total amounts, stores per-unit prices"""
     # Check if variety exists
     variety = db.query(ClothVariety).filter(ClothVariety.id == sale.variety_id).first()
     if not variety:
@@ -21,14 +21,31 @@ def create_sale(sale: SaleCreate, db: Session = Depends(get_db)):
             detail=f"Cloth variety with ID {sale.variety_id} not found"
         )
     
-    # Calculate profit
-    profit_per_item = sale.selling_price - sale.cost_price
-    total_profit = profit_per_item * Decimal(sale.quantity)
+    # Convert total amounts to per-unit prices
+    # Keep quantity as Decimal to preserve precision (e.g., 45.5)
+    quantity = Decimal(str(sale.quantity))
+    total_cost = Decimal(str(sale.cost_price))
+    total_selling = Decimal(str(sale.selling_price))
     
+    # Calculate per-unit prices
+    cost_per_unit = total_cost / quantity
+    selling_per_unit = total_selling / quantity
+    
+    # Calculate profit (total profit, will be stored as is)
+    profit_per_unit = selling_per_unit - cost_per_unit
+    total_profit = profit_per_unit * quantity
+    
+    # Create sale record with per-unit prices
     db_sale = Sale(
-        **sale.model_dump(),
-        profit=total_profit
+        salesperson_name=sale.salesperson_name,
+        variety_id=sale.variety_id,
+        quantity=quantity,  # Store as Decimal to preserve 45.5, not 45
+        selling_price=selling_per_unit,  # Store per-unit price
+        cost_price=cost_per_unit,        # Store per-unit price
+        profit=total_profit,
+        sale_date=sale.sale_date
     )
+    
     db.add(db_sale)
     db.commit()
     db.refresh(db_sale)

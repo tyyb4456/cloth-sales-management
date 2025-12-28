@@ -43,63 +43,63 @@ export default function Reports() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold text-gray-800">Reports</h2>
-<div className="flex items-center gap-2 mb-6">
-  <Calendar size={18} className="text-gray-600" />
-  <input
-    type="date"
-    value={date}
-    onChange={(e) => setDate(e.target.value)}
-    className="input-field w-auto px-3 py-2 border border-gray-300 rounded-lg
+        <div className="flex items-center gap-2 mb-6">
+          <Calendar size={18} className="text-gray-600" />
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="input-field w-auto px-3 py-2 border border-gray-300 rounded-lg
                focus:outline-none focus:ring-2 focus:ring-primary-300 transition"
-  />
-</div>
+          />
+        </div>
 
       </div>
 
       {dailyReport && dailyReport.supplier_summary && dailyReport.sales_summary && (
         <>
           {/* Daily Summary Cards */}
-<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-  {/** Supplier Net */}
-  <div className="card p-4 hover:shadow-lg transition rounded-lg">
-    <div className="flex items-center justify-between mb-2">
-      <h3 className="text-sm font-medium text-gray-600">Supplier Net</h3>
-      <DollarSign size={20} className="text-blue-600" />
-    </div>
-    <p className="text-2xl font-bold text-gray-900">
-      ₹{parseFloat(dailyReport.supplier_summary.net_amount).toFixed(2)}
-    </p>
-    <div className="mt-2 text-xs text-gray-500 space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            {/** Supplier Net */}
+            <div className="card p-4 hover:shadow-lg transition rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Supplier Net</h3>
+                <DollarSign size={20} className="text-blue-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                ₹{parseFloat(dailyReport.supplier_summary.net_amount).toFixed(2)}
+              </p>
+              <div className="mt-2 text-xs text-gray-500 space-y-1">
                 <div>Supply: ₹{parseFloat(dailyReport.supplier_summary.total_supply).toFixed(2)}</div>
                 <div>Returns: ₹{parseFloat(dailyReport.supplier_summary.total_returns).toFixed(2)}</div>
               </div>
             </div>
 
-  {/** Total Sales */}
-  <div className="card p-4 hover:shadow-lg transition rounded-lg">
-    <div className="flex items-center justify-between mb-2">
-      <h3 className="text-sm font-medium text-gray-600">Total Sales</h3>
-      <TrendingUp size={20} className="text-purple-600" />
-    </div>
-    <p className="text-2xl font-bold text-gray-900">
-      ₹{parseFloat(dailyReport.sales_summary.total_sales_amount).toFixed(2)}
-    </p>
-    <div className="mt-2 text-xs text-gray-500 space-y-1">
+            {/** Total Sales */}
+            <div className="card p-4 hover:shadow-lg transition rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Total Sales</h3>
+                <TrendingUp size={20} className="text-purple-600" />
+              </div>
+              <p className="text-2xl font-bold text-gray-900">
+                ₹{parseFloat(dailyReport.sales_summary.total_sales_amount).toFixed(2)}
+              </p>
+              <div className="mt-2 text-xs text-gray-500 space-y-1">
                 <div>Items Sold: {dailyReport.sales_summary.total_quantity_sold}</div>
                 <div>Transactions: {dailyReport.sales_summary.sales_count}</div>
               </div>
             </div>
 
-  {/** Total Profit */}
-  <div className="card p-4 hover:shadow-lg transition rounded-lg">
-    <div className="flex items-center justify-between mb-2">
-      <h3 className="text-sm font-medium text-gray-600">Total Profit</h3>
-      <TrendingUp size={20} className="text-green-600" />
-    </div>
-    <p className="text-2xl font-bold text-green-600">
-      ₹{parseFloat(dailyReport.sales_summary.total_profit).toFixed(2)}
-    </p>
-    <div className="mt-2 text-xs text-gray-500">
+            {/** Total Profit */}
+            <div className="card p-4 hover:shadow-lg transition rounded-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium text-gray-600">Total Profit</h3>
+                <TrendingUp size={20} className="text-green-600" />
+              </div>
+              <p className="text-2xl font-bold text-green-600">
+                ₹{parseFloat(dailyReport.sales_summary.total_profit).toFixed(2)}
+              </p>
+              <div className="mt-2 text-xs text-gray-500">
                 Profit Margin: {dailyReport.sales_summary.total_sales_amount > 0
                   ? ((parseFloat(dailyReport.sales_summary.total_profit) / parseFloat(dailyReport.sales_summary.total_sales_amount)) * 100).toFixed(1)
                   : '0'}%
@@ -228,10 +228,10 @@ export default function Reports() {
       )}
 
       {(!dailyReport || !dailyReport.supplier_summary || !dailyReport.sales_summary) && !loading && (
-<div className="card text-center py-12">
-  <p className="text-gray-500 mb-2">No data available for this date</p>
-  <p className="text-sm text-gray-400">Add some transactions to see the report</p>
-</div>
+        <div className="card text-center py-12">
+          <p className="text-gray-500 mb-2">No data available for this date</p>
+          <p className="text-sm text-gray-400">Add some transactions to see the report</p>
+        </div>
 
       )}
     </div>
