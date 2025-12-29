@@ -3,6 +3,8 @@ import { Plus, Calendar, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getVarieties, createSale, getSalesByDate, deleteSale } from '../api/api';
 
+// parseInt 
+
 // Helper function to format quantity with unit
 const formatQuantityWithUnit = (quantity, unit) => {
   const qty = parseFloat(quantity);
@@ -83,7 +85,7 @@ export default function Sales() {
       await createSale({
         ...formData,
         variety_id: parseInt(formData.variety_id),
-        quantity: parseInt(formData.quantity),
+        quantity: parseFloat(formData.quantity),
         selling_price: parseFloat(formData.selling_price),
         cost_price: parseFloat(formData.cost_price)
       });
@@ -314,7 +316,7 @@ export default function Sales() {
               />
               {formData.quantity && formData.cost_price && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Per unit: ₹{(parseFloat(formData.cost_price) / parseInt(formData.quantity)).toFixed(2)}
+                  Per unit: ₹{(parseFloat(formData.cost_price) / parseFloat(formData.quantity)).toFixed(2)}
                 </p>
               )}
             </div>
@@ -342,7 +344,7 @@ export default function Sales() {
               />
               {formData.quantity && formData.selling_price && (
                 <p className="text-xs text-gray-500 mt-1">
-                  Per unit: ₹{(parseFloat(formData.selling_price) / parseInt(formData.quantity)).toFixed(2)}
+                  Per unit: ₹{(parseFloat(formData.selling_price) / parseFloat(formData.quantity)).toFixed(2)}
                 </p>
               )}
             </div>
@@ -374,7 +376,7 @@ export default function Sales() {
                   Expected Total Profit: ₹{(parseFloat(formData.selling_price) - parseFloat(formData.cost_price)).toFixed(2)}
                 </p>
                 <p className="text-xs text-green-600 mt-1">
-                  Per unit profit: ₹{((parseFloat(formData.selling_price) - parseFloat(formData.cost_price)) / parseInt(formData.quantity)).toFixed(2)}
+                  Per unit profit: ₹{((parseFloat(formData.selling_price) - parseFloat(formData.cost_price)) / parseFloat(formData.quantity)).toFixed(2)}
                 </p>
               </div>
             )}
