@@ -166,7 +166,7 @@ const fetchRealAnalytics = async (days) => {
 
     const topProducts = Object.values(productStats)
       .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 10); // TOP 10 products
+      .slice(0, 5); // TOP 10 products
 
     // Calculate salesperson performance with smart item counting
     const salespersonStats = {};
@@ -322,7 +322,16 @@ const AnalyticsDashboard = () => {
     );
   }
 
-  const COLORS = ['#6e647a', '#ba77b2', '#8dba77', '#2f6933', '#735945', '#9b7c6f', '#6a8ba3', '#b58d6f', '#7a9b6e', '#8b6e9b'];
+  const COLORS = [
+    '#8A8F98', // Cool Gray
+    '#9AA3B2', // Soft Blue Gray
+    '#A6B8B1', // Light Teal Gray
+    '#B5B8A3', // Olive Gray
+    '#C2B2A2', // Warm Gray
+    '#B7A6B5', // Mauve Gray
+  ];
+
+
 
   const KPICard = ({ title, value, subtitle, icon: Icon, trend, color }) => (
     <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition">
@@ -434,6 +443,169 @@ const AnalyticsDashboard = () => {
             <p className="text-center text-gray-500 py-8">No sales data available for this period</p>
           )}
         </div>
+
+        {/* Top 5 Products by Profit - NEW BAR CHART */}
+        {analytics.topProducts && analytics.topProducts.length > 0 && (
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Top 5 Products by Profit</h2>
+            <ResponsiveContainer width="100%" height={350}>
+              <BarChart data={analytics.topProducts.slice(0, 5)}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis
+                  dataKey="name"
+                  stroke="#6b7280"
+                  style={{ fontSize: '12px' }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                />
+                <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '8px',
+                    padding: '12px'
+                  }}
+                  formatter={(value) => [`₹${value.toLocaleString()}`, 'Profit']}
+                />
+                {/* <Legend /> */}
+                <Bar
+                  dataKey="profit"
+                  fill="#8FAEA3"
+                  activeBar={{ fill: '#7FA096' }}
+                  name="Profit (₹)"
+                  radius={[8, 8, 0, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+
+            {/* Profit Summary Table */}
+            <div className="mt-6 overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Rank</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase">Product</th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase">Items Sold</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Revenue</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Profit</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase">Margin</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {analytics.topProducts.slice(0, 5).map((product, idx) => (
+                    <tr key={idx} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition`}>
+                      <td className="px-4 py-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${idx === 0 ? 'bg-gray-600' : idx === 1 ? 'bg-gray-500' : idx === 2 ? 'bg-gray-400' : 'bg-gray-300'
+                          }`}>
+                          {idx + 1}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="font-medium text-gray-900">{product.name}</div>
+                        <div className="text-xs text-gray-500 capitalize">{product.measurement_unit}</div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                          {product.items_sold}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right font-medium text-gray-900">
+                        ₹{product.revenue.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-green-600">
+                        ₹{product.profit.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="text-sm font-medium text-gray-700">{product.margin.toFixed(1)}%</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Revenue by Product</h2>
+            {analytics.productMix.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={analytics.productMix}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={115}
+                    dataKey="value"
+                    stroke="#ffffff"
+                    strokeWidth={2}
+                    label={false}
+                  >
+                    {analytics.productMix.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={COLORS[index % COLORS.length]}
+                      />
+                    ))}
+                  </Pie>
+
+                  <Tooltip formatter={(value, name, props) => [`₹${props.payload.amount.toLocaleString()}`, 'Revenue']} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="text-center text-gray-500 py-8">No product data available</p>
+            )}
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Top 5 Products by Revenue</h2>
+            {analytics.topProducts.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={analytics.topProducts.slice(0, 5)} layout="vertical">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+
+                  <XAxis
+                    type="number"
+                    stroke="#9CA3AF"
+                    style={{ fontSize: '12px' }}
+                  />
+
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    stroke="#9CA3AF"
+                    style={{ fontSize: '12px' }}
+                    width={110}
+                  />
+
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#fff',
+                      border: '1px solid #E5E7EB',
+                      borderRadius: '8px',
+                      padding: '10px',
+                    }}
+                    formatter={(value) => [`₹${value.toLocaleString()}`, 'Revenue']}
+                  />
+
+                  <Bar
+                    dataKey="revenue"
+                    fill="#7C8DB0"
+                    radius={[0, 8, 8, 0]}
+                    barSize={18}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+
+            ) : (
+              <p className="text-center text-gray-500 py-8">No product data available</p>
+            )}
+          </div>
+        </div>
+
 
         {/* Salesperson Performance - ENHANCED */}
         {analytics.salespersonPerformance && analytics.salespersonPerformance.length > 0 && (
@@ -576,100 +748,13 @@ const AnalyticsDashboard = () => {
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Revenue by Product</h2>
-            {analytics.productMix.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={analytics.productMix}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={100}
-                    dataKey="value"
-                  >
-                    {analytics.productMix.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value, name, props) => [`₹${props.payload.amount.toLocaleString()}`, 'Revenue']} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center text-gray-500 py-8">No product data available</p>
-            )}
-          </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Top 10 Products by Revenue</h2>
-            {analytics.topProducts.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={analytics.topProducts.slice(0, 10)} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#dfe394" />
-                  <XAxis type="number" stroke="#dfe394" style={{ fontSize: '12px' }} />
-                  <YAxis dataKey="name" type="category" stroke="#aaad68" style={{ fontSize: '12px' }} width={100} />
-                  <Tooltip formatter={(value) => `₹${value.toLocaleString()}`} />
-                  <Bar dataKey="revenue" fill="#aaad68" radius={[0, 8, 8, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="text-center text-gray-500 py-8">No product data available</p>
-            )}
-          </div>
-        </div>
+
+
+
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Product Performance - ENHANCED */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold text-gray-900">Product Performance (Top 10)</h2>
-            </div>
-            <div className="overflow-x-auto">
-              {analytics.topProducts.length > 0 ? (
-                <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase">Product</th>
-                      <th className="px-6 py-3 text-center text-xs font-medium text-gray-600 uppercase">Items Sold</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Revenue</th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-600 uppercase">Margin</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {analytics.topProducts.slice(0, 10).map((product, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50 transition">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="w-2 h-2 rounded-full mr-3" style={{ backgroundColor: COLORS[idx] }}></div>
-                            <div>
-                              <span className="text-sm font-medium text-gray-900">{product.name}</span>
-                              <div className="text-xs text-gray-500 capitalize">{product.measurement_unit}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {product.items_sold}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                          ₹{product.revenue.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <span className="text-sm font-medium text-gray-600">{product.margin.toFixed(1)}%</span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <p className="text-center text-gray-500 py-8">No product data available</p>
-              )}
-            </div>
-          </div>
+
 
           {/* Supplier Reliability */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
