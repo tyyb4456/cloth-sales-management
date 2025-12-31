@@ -7,10 +7,10 @@ const API_BASE_URL = 'http://127.0.0.1:8000';
 const FormattedMessage = ({ content, isUser }) => {
   const formatText = (text) => {
     if (!text) return [];
-    
+
     const lines = text.split('\n');
     const elements = [];
-    
+
     lines.forEach((line, lineIndex) => {
       // Headers (# heading)
       if (line.match(/^#{1,3}\s+(.+)/)) {
@@ -24,7 +24,7 @@ const FormattedMessage = ({ content, isUser }) => {
         );
         return;
       }
-      
+
       // Bold text (**text**)
       if (line.includes('**')) {
         const parts = line.split(/(\*\*.*?\*\*)/g);
@@ -40,7 +40,7 @@ const FormattedMessage = ({ content, isUser }) => {
         );
         return;
       }
-      
+
       // Bullet points (- item or * item)
       if (line.match(/^[\-\*]\s+(.+)/)) {
         const text = line.replace(/^[\-\*]\s+/, '');
@@ -52,7 +52,7 @@ const FormattedMessage = ({ content, isUser }) => {
         );
         return;
       }
-      
+
       // Numbered lists (1. item)
       if (line.match(/^\d+\.\s+(.+)/)) {
         const match = line.match(/^(\d+)\.\s+(.+)/);
@@ -64,13 +64,13 @@ const FormattedMessage = ({ content, isUser }) => {
         );
         return;
       }
-      
+
       // Empty lines
       if (line.trim() === '') {
         elements.push(<div key={lineIndex} className="h-2" />);
         return;
       }
-      
+
       // Regular text
       elements.push(
         <div key={lineIndex} className="mb-1">
@@ -78,10 +78,10 @@ const FormattedMessage = ({ content, isUser }) => {
         </div>
       );
     });
-    
+
     return elements;
   };
-  
+
   return <div className="space-y-0.5">{formatText(content)}</div>;
 };
 
@@ -115,23 +115,23 @@ const AIChatbot = () => {
       const statsRes = await fetch(`${API_BASE_URL}/chatbot/quick-stats`)
         .then(r => r.ok ? r.json() : null)
         .catch(() => null);
-      
+
       const questionsRes = await fetch(`${API_BASE_URL}/chatbot/suggested-questions`)
         .then(r => r.ok ? r.json() : null)
         .catch(() => null);
-      
+
       if (statsRes) {
         setQuickStats(statsRes);
       }
-      
+
       if (questionsRes?.quick_queries) {
         setSuggestedQuestions(questionsRes.quick_queries);
       }
 
       // Welcome message
-      const welcomeMsg = statsRes 
-        ? `👋 Hello! I'm your AI business assistant.\n\nToday's Summary:\n• Revenue: ₹${statsRes.today.revenue.toLocaleString()}\n• Profit: ₹${statsRes.today.profit.toLocaleString()}\n• Orders: ${statsRes.today.transactions}\n\nWhat would you like to know?`
-        : `👋 Hello! I'm your AI business assistant. I can help you analyze your sales, inventory, and business performance. What would you like to know?`;
+      const welcomeMsg = statsRes
+        ? `Hello! I'm your AI business assistant.\n\nToday's Summary:\n• Revenue: ₹${statsRes.today.revenue.toLocaleString()}\n• Profit: ₹${statsRes.today.profit.toLocaleString()}\n• Orders: ${statsRes.today.transactions}\n\nWhat would you like to know?`
+        : `Hello! I'm your AI business assistant. I can help you analyze your sales, inventory, and business performance. What would you like to know?`;
 
       setMessages([{
         role: 'assistant',
@@ -142,7 +142,7 @@ const AIChatbot = () => {
       console.error('Error loading initial data:', error);
       setMessages([{
         role: 'assistant',
-        content: "👋 Hello! I'm your AI business assistant. How can I help you today?",
+        content: "Hello! I'm your AI business assistant. How can I help you today?",
         timestamp: new Date().toISOString()
       }]);
     }
@@ -217,12 +217,13 @@ const AIChatbot = () => {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-16 h-16 bg-linear-to-br from-purple-600 to-blue-600 
-                     text-white rounded-full shadow-2xl hover:shadow-purple-500/50 
-                     transition-all duration-300 hover:scale-110 z-50 flex items-center justify-center group"
+          className="fixed bottom-6 right-6 w-16 h-16
+          bg-linear-to-br from-slate-600 to-slate-700
+          text-white rounded-full shadow-xl
+          hover:shadow-slate-500/30 transition-all duration-300 hover:scale-110 z-50 flex items-center justify-center group"
         >
           <MessageCircle size={28} className="group-hover:scale-110 transition-transform" />
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-white animate-pulse"></span>
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white animate-pulse"></span>
         </button>
       )}
 
@@ -231,7 +232,7 @@ const AIChatbot = () => {
         <div className="fixed bottom-6 right-6 w-105 h-150 bg-white rounded-2xl shadow-2xl 
                         flex flex-col z-50 border border-gray-200 overflow-hidden">
           {/* Header */}
-          <div className="bg-linear-to-r from-purple-600 to-blue-600 text-white p-4 flex items-center justify-between">
+          <div className="bg-linear-to-r from-slate-700 to-slate-800 text-white p-4 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
                 <Bot size={22} />
@@ -239,7 +240,7 @@ const AIChatbot = () => {
               <div>
                 <h3 className="font-semibold text-lg">AI Business Assistant</h3>
                 <p className="text-xs text-white/80 flex items-center gap-1">
-                  <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                  <span className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></span>
                   Online
                 </p>
               </div>
@@ -270,28 +271,26 @@ const AIChatbot = () => {
               >
                 <div className={`flex gap-2 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                   {/* Avatar */}
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                    message.role === 'user' 
-                      ? 'bg-linear-to-br from-purple-500 to-blue-500' 
-                      : 'bg-linear-to-br from-gray-700 to-gray-900'
-                  }`}>
-                    {message.role === 'user' ? <User size={16} className="text-white" /> : <Bot size={16} className="text-white" />}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${message.role === 'user'
+                    ? 'bg-linear-to-br from-slate-500 to-slate-600'
+                    : 'bg-linear-to-br from-gray-700 to-gray-900'
+                    }`}>
+                    {message.role === 'user' ? <User size={16} className="bg-linear-to-br from-slate-600 to-slate-700
+ text-white" /> : <Bot size={16} className="text-white" />}
                   </div>
 
                   {/* Message Bubble */}
-                  <div className={`rounded-2xl px-4 py-2.5 ${
-                    message.role === 'user'
-                      ? 'bg-linear-to-br from-purple-600 to-blue-600 text-white'
-                      : message.isError
+                  <div className={`rounded-2xl px-4 py-2.5 ${message.role === 'user'
+                    ? 'bg-linear-to-br from-slate-600 to-slate-700 text-white'
+                    : message.isError
                       ? 'bg-red-50 text-red-800 border border-red-200'
                       : 'bg-white text-gray-800 shadow-sm border border-gray-200'
-                  }`}>
+                    }`}>
                     <div className="text-sm leading-relaxed">
                       <FormattedMessage content={message.content} isUser={message.role === 'user'} />
                     </div>
-                    <p className={`text-xs mt-1 ${
-                      message.role === 'user' ? 'text-white/70' : 'text-gray-400'
-                    }`}>
+                    <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-white/70' : 'text-gray-400'
+                      }`}>
                       {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
@@ -330,8 +329,8 @@ const AIChatbot = () => {
                       key={idx}
                       onClick={() => handleQuickQuery(question)}
                       className="px-3 py-1.5 bg-white hover:bg-purple-50 border border-gray-200 
-                               hover:border-purple-300 rounded-full text-xs text-gray-700 
-                               hover:text-purple-700 transition-all duration-200 hover:shadow-sm"
+                               hover:border-slate-300 rounded-full text-xs text-gray-700 
+                               hover:text-slate-700 transition-all duration-200 hover:shadow-sm"
                     >
                       {question}
                     </button>
@@ -344,24 +343,38 @@ const AIChatbot = () => {
           </div>
 
           {/* Quick Stats Bar - Only show if data is available */}
-          {quickStats && quickStats.today && (
-            <div className="border-t border-gray-200 bg-white p-3">
-              <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-linear-to-br from-green-50 to-emerald-50 rounded-lg p-2 border border-green-200">
-                  <p className="text-xs text-gray-600 font-medium">Revenue</p>
-                  <p className="text-sm font-bold text-green-700">₹{quickStats.today.revenue.toLocaleString()}</p>
-                </div>
-                <div className="bg-linear-to-br from-blue-50 to-indigo-50 rounded-lg p-2 border border-blue-200">
-                  <p className="text-xs text-gray-600 font-medium">Profit</p>
-                  <p className="text-sm font-bold text-blue-700">₹{quickStats.today.profit.toLocaleString()}</p>
-                </div>
-                <div className="bg-linear-to-br from-purple-50 to-pink-50 rounded-lg p-2 border border-purple-200">
-                  <p className="text-xs text-gray-600 font-medium">Orders</p>
-                  <p className="text-sm font-bold text-purple-700">{quickStats.today.transactions}</p>
-                </div>
-              </div>
-            </div>
-          )}
+{quickStats && quickStats.today && (
+  <div className="border-t border-gray-200 bg-white p-3">
+    <div className="grid grid-cols-3 gap-2 text-center">
+      
+      {/* Revenue */}
+      <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
+        <p className="text-xs text-gray-600 font-medium">Revenue</p>
+        <p className="text-sm font-bold text-slate-700">
+          ₹{quickStats.today.revenue.toLocaleString()}
+        </p>
+      </div>
+
+      {/* Profit */}
+      <div className="bg-teal-50 rounded-lg p-2 border border-teal-200">
+        <p className="text-xs text-gray-600 font-medium">Profit</p>
+        <p className="text-sm font-bold text-teal-700">
+          ₹{quickStats.today.profit.toLocaleString()}
+        </p>
+      </div>
+
+      {/* Orders */}
+      <div className="bg-gray-50 rounded-lg p-2 border border-gray-200">
+        <p className="text-xs text-gray-600 font-medium">Orders</p>
+        <p className="text-sm font-bold text-gray-700">
+          {quickStats.today.transactions}
+        </p>
+      </div>
+
+    </div>
+  </div>
+)}
+
 
           {/* Input Area */}
           <div className="border-t border-gray-200 bg-white p-4">
@@ -377,20 +390,22 @@ const AIChatbot = () => {
                          focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent
                          disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               />
-              <button
-                onClick={() => handleSendMessage()}
-                disabled={!inputMessage.trim() || isLoading}
-                className="p-3 bg-linear-to-br from-purple-600 to-blue-600 text-white rounded-xl
-                         hover:from-purple-700 hover:to-blue-700 transition-all duration-200
-                         disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:from-purple-600 
-                         disabled:hover:to-blue-600 hover:shadow-lg hover:scale-105 active:scale-95"
-              >
-                {isLoading ? (
-                  <Loader2 size={20} className="animate-spin" />
-                ) : (
-                  <Send size={20} />
-                )}
-              </button>
+<button
+  onClick={() => handleSendMessage()}
+  disabled={!inputMessage.trim() || isLoading}
+  className="p-3 bg-linear-to-br from-slate-600 to-slate-700 text-white rounded-xl
+             hover:from-slate-700 hover:to-slate-800 transition-all duration-200
+             disabled:opacity-50 disabled:cursor-not-allowed
+             disabled:hover:from-slate-600 disabled:hover:to-slate-700
+             hover:shadow-md hover:scale-105 active:scale-95"
+>
+  {isLoading ? (
+    <Loader2 size={20} className="animate-spin" />
+  ) : (
+    <Send size={20} />
+  )}
+</button>
+
             </div>
             <p className="text-xs text-gray-400 mt-2 text-center">
               Powered by AI • Real-time business insights
