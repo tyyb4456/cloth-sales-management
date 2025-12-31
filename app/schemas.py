@@ -1,3 +1,5 @@
+# app/schemas.py - UPDATED with price field
+
 from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
 from decimal import Decimal
@@ -8,9 +10,9 @@ from models import MeasurementUnit
 class ClothVarietyBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = None
-
     measurement_unit: MeasurementUnit = MeasurementUnit.PIECES
-    standard_length: Optional[Decimal] = None 
+    standard_length: Optional[Decimal] = None
+    default_cost_price: Optional[Decimal] = None  # ✨ NEW
 
 class ClothVarietyCreate(ClothVarietyBase):
     pass
@@ -22,13 +24,12 @@ class ClothVarietyResponse(ClothVarietyBase):
     class Config:
         from_attributes = True
 
-
 class ClothVarietyUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     measurement_unit: Optional[MeasurementUnit] = None
     standard_length: Optional[Decimal] = None
-
+    default_cost_price: Optional[Decimal] = None  # ✨ NEW
 
 # Supplier Inventory Schemas
 class SupplierInventoryBase(BaseModel):
@@ -129,9 +130,7 @@ class SalespersonSummary(BaseModel):
     total_items_sold: int
     sales_count: int
 
-
-# app/schemas.py - ADD THESE SCHEMAS
-
+# Expense Schemas
 class ExpenseBase(BaseModel):
     category: str
     amount: Decimal = Field(..., gt=0, decimal_places=2)

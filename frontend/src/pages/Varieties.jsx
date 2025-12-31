@@ -1,3 +1,5 @@
+// frontend/src/pages/Varieties.jsx - UPDATED with price field
+
 import { useState, useEffect } from 'react';
 import { Plus, Trash2, Edit2, X, Save, Package } from 'lucide-react';
 import { getVarieties, createVariety, deleteVariety, updateVariety } from '../api/api';
@@ -13,6 +15,7 @@ export default function Varieties() {
     description: '',
     measurement_unit: 'pieces',
     standard_length: '',
+    default_cost_price: '', // ✨ NEW
   });
 
   const units = [
@@ -48,6 +51,9 @@ export default function Varieties() {
         formData.measurement_unit === 'pieces'
           ? null
           : Number(formData.standard_length),
+      default_cost_price: formData.default_cost_price 
+        ? Number(formData.default_cost_price) 
+        : null, // ✨ NEW
     };
 
     try {
@@ -72,6 +78,7 @@ export default function Varieties() {
       description: variety.description || '',
       measurement_unit: variety.measurement_unit,
       standard_length: variety.standard_length || '',
+      default_cost_price: variety.default_cost_price || '', // ✨ NEW
     });
     setShowForm(true);
   };
@@ -93,6 +100,7 @@ export default function Varieties() {
       description: '',
       measurement_unit: 'pieces',
       standard_length: '',
+      default_cost_price: '', // ✨ NEW
     });
     setShowForm(false);
     setEditingId(null);
@@ -178,6 +186,27 @@ export default function Varieties() {
               </div>
             )}
 
+            {/* ✨ NEW: Default Cost Price Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Default Cost Price (₹)
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                placeholder="e.g., 150.00"
+                value={formData.default_cost_price}
+                onChange={(e) =>
+                  setFormData({ ...formData, default_cost_price: e.target.value })
+                }
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 transition"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Optional: This price will be auto-filled when recording sales
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Description
@@ -240,6 +269,9 @@ export default function Varieties() {
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Standard Length
                   </th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Default Cost
+                  </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                     Description
                   </th>
@@ -263,6 +295,15 @@ export default function Varieties() {
                       {v.standard_length 
                         ? `${v.standard_length} ${v.measurement_unit}`
                         : '—'}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {v.default_cost_price ? (
+                        <span className="font-medium text-green-700">
+                          ₹{parseFloat(v.default_cost_price).toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4 text-gray-600 text-sm max-w-xs truncate">
                       {v.description || '—'}

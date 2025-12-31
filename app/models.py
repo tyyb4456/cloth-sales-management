@@ -1,3 +1,5 @@
+# app/models.py - UPDATED with price field
+
 from sqlalchemy import Column, Integer, String, DECIMAL, DateTime, Date, Text, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -25,9 +27,12 @@ class ClothVariety(Base):
     )
 
     # For meter-based items, store standard length per piece
-    standard_length = Column(DECIMAL(10, 2), nullable=True) 
-    description = Column(Text)
+    standard_length = Column(DECIMAL(10, 2), nullable=True)
     
+    # ✨ NEW: Default cost price per unit
+    default_cost_price = Column(DECIMAL(10, 2), nullable=True)
+    
+    description = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
 
     supplier_inventories = relationship(
@@ -69,7 +74,6 @@ class SupplierInventory(Base):
     supply_date = Column(Date, nullable=False, index=True)
     created_at = Column(DateTime, server_default=func.now())
     
-    # Relationships
     variety = relationship("ClothVariety", back_populates="supplier_inventories")
 
 class SupplierReturn(Base):
@@ -90,7 +94,6 @@ class SupplierReturn(Base):
     reason = Column(Text)
     created_at = Column(DateTime, server_default=func.now())
     
-    # Relationships
     variety = relationship("ClothVariety", back_populates="supplier_returns")
 
 class Sale(Base):
@@ -111,10 +114,7 @@ class Sale(Base):
     sale_date = Column(Date, nullable=False, index=True)
     sale_timestamp = Column(DateTime, server_default=func.now())
     
-    # Relationships
     variety = relationship("ClothVariety", back_populates="sales")
-
-# app/models.py - ADD THIS TO YOUR EXISTING MODELS
 
 class ExpenseCategory(str, enum.Enum):
     RENT = "rent"

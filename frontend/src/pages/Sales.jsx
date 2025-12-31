@@ -1,24 +1,22 @@
+// frontend/src/pages/Sales.jsx - UPDATED with auto-fill cost price
+
 import { useState, useEffect } from 'react';
 import { Plus, Calendar, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { getVarieties, createSale, getSalesByDate, deleteSale } from '../api/api';
 
-// parseInt 
-
 // Helper function to format quantity with unit
 const formatQuantityWithUnit = (quantity, unit) => {
   const qty = parseFloat(quantity);
   if (unit === 'meters') {
-    // Show decimal places only if needed
     return qty % 1 === 0 ? `${qty}m` : `${qty.toFixed(2)}m`;
   }
   if (unit === 'yards') {
     return qty % 1 === 0 ? `${qty}y` : `${qty.toFixed(2)}y`;
   }
-  return Math.floor(qty); // pieces - no decimals, no unit
+  return Math.floor(qty);
 };
 
-// Helper function to get item count (1 for meters/yards, actual quantity for pieces)
 const getItemCount = (quantity, unit) => {
   if (unit === 'meters' || unit === 'yards') return 1;
   return parseFloat(quantity);
@@ -79,6 +77,32 @@ export default function Sales() {
     }
   };
 
+  // ✨ NEW: Auto-fill cost price when variety is selected
+  const handleVarietySelect = (variety) => {
+    setFormData({ 
+      ...formData, 
+      variety_id: variety.id,
+      // Auto-fill cost price if available
+      cost_price: variety.default_cost_price 
+        ? (parseFloat(variety.default_cost_price) * (parseFloat(formData.quantity) || 1)).toString()
+        : formData.cost_price
+    });
+    setVarietySearch(variety.name);
+    setSelectedVariety(variety);
+    setShowVarietyDropdown(false);
+  };
+
+  // ✨ NEW: Recalculate cost price when quantity changes
+  const handleQuantityChange = (quantity) => {
+    setFormData({ ...formData, quantity });
+    
+    // If variety has default price, recalculate total cost
+    if (selectedVariety?.default_cost_price && quantity) {
+      const totalCost = parseFloat(selectedVariety.default_cost_price) * parseFloat(quantity);
+      setFormData(prev => ({ ...prev, quantity, cost_price: totalCost.toString() }));
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -125,7 +149,6 @@ export default function Sales() {
   const totalSales = Array.isArray(sales) ? sales.reduce((sum, item) => sum + (parseFloat(item.selling_price) * item.quantity), 0) : 0;
   const totalProfit = Array.isArray(sales) ? sales.reduce((sum, item) => sum + parseFloat(item.profit), 0) : 0;
 
-  // Calculate total items sold (1 for meters/yards, actual quantity for pieces)
   const totalItemsSold = Array.isArray(sales) ? sales.reduce((sum, item) => {
     return sum + getItemCount(item.quantity, item.variety.measurement_unit);
   }, 0) : 0;
@@ -134,7 +157,6 @@ export default function Sales() {
     v.name.toLowerCase().includes(varietySearch.toLowerCase())
   );
 
-  // Get unit label for selected variety
   const getUnitLabel = () => {
     if (!selectedVariety) return '';
     if (selectedVariety.measurement_unit === 'meters') return 'm';
@@ -207,7 +229,7 @@ export default function Sales() {
               </select>
             </div>
 
-            {/* Cloth Variety */}
+            {/* Cloth Variety with auto-complete */}
             <div className="relative w-full">
               <label className="block mb-1 text-sm font-medium text-gray-700">
                 Cloth Variety *
@@ -238,17 +260,17 @@ export default function Sales() {
                     filteredVarieties.map((v) => (
                       <div
                         key={v.id}
-                        onClick={() => {
-                          setFormData({ ...formData, variety_id: v.id });
-                          setVarietySearch(v.name);
-                          setSelectedVariety(v);
-                          setShowVarietyDropdown(false);
-                        }}
+                        onClick={() => handleVarietySelect(v)}
                         className="px-4 py-2 cursor-pointer hover:bg-gray-100 transition"
                       >
                         <div className="font-medium">{v.name}</div>
-                        <div className="text-xs text-gray-500 capitalize">
-                          {v.measurement_unit}
+                        <div className="text-xs text-gray-500 flex justify-between">
+                          <span className="capitalize">{v.measurement_unit}</span>
+                          {v.default_cost_price && (
+                            <span className="text-green-600">
+                              ₹{parseFloat(v.default_cost_price).toFixed(2)}/unit
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))
@@ -276,9 +298,7 @@ export default function Sales() {
                     focus:outline-none focus:border-gray-500
                     focus:ring-2 focus:ring-gray-500/20"
                   value={formData.quantity}
-                  onChange={(e) =>
-                    setFormData({ ...formData, quantity: e.target.value })
-                  }
+                  onChange={(e) => handleQuantityChange(e.target.value)}
                 />
                 {selectedVariety && getUnitLabel() && (
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
@@ -293,10 +313,15 @@ export default function Sales() {
               )}
             </div>
 
-            {/* Total Cost Price */}
+            {/* Total Cost Price with auto-fill indicator */}
             <div className="relative w-full">
               <label className="block mb-1 text-sm font-medium text-gray-700">
                 Total Cost Price (₹) *
+                {selectedVariety?.default_cost_price && (
+                  <span className="ml-2 text-xs text-green-600">
+                    (Auto-filled)
+                  </span>
+                )}
               </label>
               <input
                 type="number"
