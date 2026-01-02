@@ -10,30 +10,15 @@ const getItemCount = (quantity, unit) => {
   return parseFloat(quantity);
 };
 
-// Helper to format quantity with unit
-const formatQuantityWithUnit = (quantity, unit) => {
-  const qty = parseFloat(quantity);
-  // For meters/yards, show decimals if present
-  if (unit === 'meters') {
-    const formatted = qty % 1 === 0 ? qty.toString() : qty.toFixed(2);
-    return `${formatted}m`;
-  }
-  if (unit === 'yards') {
-    const formatted = qty % 1 === 0 ? qty.toString() : qty.toFixed(2);
-    return `${formatted}y`;
-  }
-  // For pieces, always show as integer
-  return Math.floor(qty);
-};
-
 const getDateRange = (days) => {
   const end = new Date();
   const start = new Date();
-  start.setDate(start.getDate() - days);
-  return {
-    startDate: start.toISOString().split('T')[0],
-    endDate: end.toISOString().split('T')[0]
-  };
+  start.setDate(start.getDate() - days + 1);
+  
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+  
+  return { startDate: start, endDate: end };
 };
 
 const fetchRealAnalytics = async (days) => {
@@ -58,39 +43,48 @@ const fetchRealAnalytics = async (days) => {
       varietiesRes.json()
     ]);
 
+    // Filter data based on date range
     const sales = allSales.filter(s => {
-      const date = new Date(s.sale_date);
-      return date >= new Date(startDate) && date <= new Date(endDate);
+      const saleDate = new Date(s.sale_date);
+      saleDate.setHours(0, 0, 0, 0);
+      return saleDate >= startDate && saleDate <= endDate;
     });
 
     const inventory = allInventory.filter(i => {
-      const date = new Date(i.supply_date);
-      return date >= new Date(startDate) && date <= new Date(endDate);
+      const supplyDate = new Date(i.supply_date);
+      supplyDate.setHours(0, 0, 0, 0);
+      return supplyDate >= startDate && supplyDate <= endDate;
     });
 
     const returns = allReturns.filter(r => {
-      const date = new Date(r.return_date);
-      return date >= new Date(startDate) && date <= new Date(endDate);
+      const returnDate = new Date(r.return_date);
+      returnDate.setHours(0, 0, 0, 0);
+      return returnDate >= startDate && returnDate <= endDate;
     });
 
-    // Create variety map for quick lookup
+    console.log(`📊 Analyzing ${days} days:`, {
+      totalSales: sales.length,
+      dateRange: `${startDate.toLocaleDateString()} to ${endDate.toLocaleDateString()}`
+    });
+
+    // Create variety map
     const varietyMap = {};
     varieties.forEach(v => {
       varietyMap[v.id] = v;
     });
 
-    // Calculate KPIs
-    const totalRevenue = sales.reduce((sum, sale) =>
-      sum + parseFloat(sale.selling_price) * sale.quantity, 0
+    // CORRECT CALCULATION - Match Reports page logic
+    // Calculate totals EXACTLY like the backend does
+    const totalRevenue = sales.reduce((sum, sale) => 
+      sum + (parseFloat(sale.selling_price) * parseFloat(sale.quantity)), 0
     );
 
-    const totalProfit = sales.reduce((sum, sale) =>
+    const totalProfit = sales.reduce((sum, sale) => 
       sum + parseFloat(sale.profit), 0
     );
 
     const totalSales = sales.length;
 
-    // Calculate smart item count
     const totalItemsSold = sales.reduce((sum, sale) => {
       const variety = varietyMap[sale.variety_id];
       return sum + getItemCount(sale.quantity, variety?.measurement_unit || 'pieces');
@@ -99,41 +93,70 @@ const fetchRealAnalytics = async (days) => {
     const avgOrderValue = totalSales > 0 ? totalRevenue / totalSales : 0;
     const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0;
 
-    // Calculate growth rate
+    // Growth calculation
+    const midPoint = Math.floor(days / 2);
     const midDate = new Date(startDate);
-    midDate.setDate(midDate.getDate() + Math.floor(days / 2));
+    midDate.setDate(midDate.getDate() + midPoint);
 
     const firstHalfSales = sales.filter(s => new Date(s.sale_date) < midDate);
     const secondHalfSales = sales.filter(s => new Date(s.sale_date) >= midDate);
 
     const firstHalfRevenue = firstHalfSales.reduce((sum, s) =>
-      sum + parseFloat(s.selling_price) * s.quantity, 0
+      sum + (parseFloat(s.selling_price) * parseFloat(s.quantity)), 0
     );
     const secondHalfRevenue = secondHalfSales.reduce((sum, s) =>
-      sum + parseFloat(s.selling_price) * s.quantity, 0
+      sum + (parseFloat(s.selling_price) * parseFloat(s.quantity)), 0
     );
 
     const growthRate = firstHalfRevenue > 0
       ? ((secondHalfRevenue - firstHalfRevenue) / firstHalfRevenue) * 100
       : 0;
 
-    // Generate sales trend data
+    // FIXED: Sales trend data - Initialize with zeros
     const salesByDate = {};
+    
+    // Fix timezone issue: use the date string directly without converting
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateKey = `${year}-${month}-${day}`; // YYYY-MM-DD format
+      
+      salesByDate[dateKey] = { 
+        date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        dateKey: dateKey,
+        revenue: 0, 
+        profit: 0, 
+        sales: 0 
+      };
+    }
+
+    // CRITICAL FIX: Calculate revenue exactly like Reports page
     sales.forEach(sale => {
-      const date = new Date(sale.sale_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-      if (!salesByDate[date]) {
-        salesByDate[date] = { date, revenue: 0, profit: 0, sales: 0 };
+      const dateKey = sale.sale_date;
+      if (salesByDate[dateKey]) {
+        // Match the backend calculation exactly
+        const saleRevenue = parseFloat(sale.selling_price) * parseFloat(sale.quantity);
+        const saleProfit = parseFloat(sale.profit);
+        
+        salesByDate[dateKey].revenue += saleRevenue;
+        salesByDate[dateKey].profit += saleProfit;
+        salesByDate[dateKey].sales += 1;
       }
-      salesByDate[date].revenue += parseFloat(sale.selling_price) * sale.quantity;
-      salesByDate[date].profit += parseFloat(sale.profit);
-      salesByDate[date].sales += 1;
     });
 
-    const salesData = Object.values(salesByDate).sort((a, b) =>
-      new Date(a.date) - new Date(b.date)
+    const salesData = Object.values(salesByDate).sort((a, b) => 
+      new Date(a.dateKey) - new Date(b.dateKey)
     );
 
-    // Calculate top products with smart item counting
+    // Debug: Log a few sample dates
+    console.log('📈 Sample sales data:', salesData.slice(-5).map(d => ({
+      date: d.date,
+      revenue: d.revenue.toFixed(2),
+      profit: d.profit.toFixed(2)
+    })));
+
+    // Product stats
     const productStats = {};
     sales.forEach(sale => {
       const variety = varietyMap[sale.variety_id];
@@ -151,12 +174,12 @@ const fetchRealAnalytics = async (days) => {
         };
       }
 
-      const revenue = parseFloat(sale.selling_price) * sale.quantity;
+      const revenue = parseFloat(sale.selling_price) * parseFloat(sale.quantity);
       const profit = parseFloat(sale.profit);
 
       productStats[name].revenue += revenue;
       productStats[name].profit += profit;
-      productStats[name].quantity += sale.quantity;
+      productStats[name].quantity += parseFloat(sale.quantity);
       productStats[name].items_sold += getItemCount(sale.quantity, variety?.measurement_unit || 'pieces');
     });
 
@@ -166,9 +189,9 @@ const fetchRealAnalytics = async (days) => {
 
     const topProducts = Object.values(productStats)
       .sort((a, b) => b.revenue - a.revenue)
-      .slice(0, 5); // TOP 10 products
+      .slice(0, 5);
 
-    // Calculate salesperson performance with smart item counting
+    // Salesperson performance
     const salespersonStats = {};
     sales.forEach(sale => {
       const variety = varietyMap[sale.variety_id];
@@ -186,13 +209,13 @@ const fetchRealAnalytics = async (days) => {
         };
       }
 
-      const revenue = parseFloat(sale.selling_price) * sale.quantity;
+      const revenue = parseFloat(sale.selling_price) * parseFloat(sale.quantity);
       const profit = parseFloat(sale.profit);
 
       salespersonStats[name].transactions += 1;
       salespersonStats[name].revenue += revenue;
       salespersonStats[name].profit += profit;
-      salespersonStats[name].quantity += sale.quantity;
+      salespersonStats[name].quantity += parseFloat(sale.quantity);
       salespersonStats[name].items_sold += getItemCount(sale.quantity, variety?.measurement_unit || 'pieces');
     });
 
@@ -205,7 +228,7 @@ const fetchRealAnalytics = async (days) => {
     const salespersonPerformance = Object.values(salespersonStats)
       .sort((a, b) => b.revenue - a.revenue);
 
-    // Calculate supplier performance
+    // Supplier performance
     const supplierStats = {};
 
     inventory.forEach(inv => {
@@ -235,7 +258,7 @@ const fetchRealAnalytics = async (days) => {
       .sort((a, b) => b.netAmount - a.netAmount)
       .slice(0, 5);
 
-    // Calculate product mix
+    // Product mix
     const totalRevenueByProduct = topProducts.reduce((sum, p) => sum + p.revenue, 0);
     const productMix = topProducts.map(product => ({
       name: product.name,
@@ -245,6 +268,13 @@ const fetchRealAnalytics = async (days) => {
 
     const topProduct = topProducts.length > 0 ? topProducts[0] : null;
     const topProductShare = topProduct && totalRevenue > 0 ? (topProduct.revenue / totalRevenue) * 100 : 0;
+
+    console.log('✅ Final KPIs:', {
+      totalRevenue: totalRevenue.toFixed(2),
+      totalProfit: totalProfit.toFixed(2),
+      totalSales,
+      dataPoints: salesData.length
+    });
 
     return {
       kpis: {
@@ -265,7 +295,7 @@ const fetchRealAnalytics = async (days) => {
       salespersonPerformance
     };
   } catch (error) {
-    console.error('Error fetching analytics:', error);
+    console.error('❌ Error fetching analytics:', error);
     throw error;
   }
 };
@@ -322,16 +352,7 @@ const AnalyticsDashboard = () => {
     );
   }
 
-  const COLORS = [
-    '#8A8F98', // Cool Gray
-    '#9AA3B2', // Soft Blue Gray
-    '#A6B8B1', // Light Teal Gray
-    '#B5B8A3', // Olive Gray
-    '#C2B2A2', // Warm Gray
-    '#B7A6B5', // Mauve Gray
-  ];
-
-
+  const COLORS = ['#8A8F98', '#9AA3B2', '#A6B8B1', '#B5B8A3', '#C2B2A2', '#B7A6B5'];
 
   const KPICard = ({ title, value, subtitle, icon: Icon, trend, color }) => (
     <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:shadow-md transition">
@@ -349,13 +370,13 @@ const AnalyticsDashboard = () => {
         <div className="mt-4 flex items-center">
           {trend > 0 ? (
             <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
-          ) : (
+          ) : trend < 0 ? (
             <TrendingDown className="w-4 h-4 text-red-600 mr-1" />
-          )}
-          <span className={`text-sm font-medium ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
-            {Math.abs(trend).toFixed(1)}%
+          ) : null}
+          <span className={`text-sm font-medium ${trend > 0 ? 'text-green-600' : trend < 0 ? 'text-red-600' : 'text-gray-500'}`}>
+            {trend === 0 ? '0.0%' : `${Math.abs(trend).toFixed(1)}%`}
           </span>
-          <span className="text-sm text-gray-500 ml-1">vs last period</span>
+          <span className="text-sm text-gray-500 ml-1">vs previous period</span>
         </div>
       )}
     </div>
@@ -374,8 +395,9 @@ const AnalyticsDashboard = () => {
               <button
                 key={days}
                 onClick={() => setTimeRange(days)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition ${timeRange === days ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  timeRange === days ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-100'
+                }`}
               >
                 {days} Days
               </button>
@@ -383,6 +405,7 @@ const AnalyticsDashboard = () => {
           </div>
         </div>
 
+        {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <KPICard
             title="Total Revenue"
@@ -403,7 +426,7 @@ const AnalyticsDashboard = () => {
           <KPICard
             title="Orders"
             value={analytics.kpis.totalSales}
-            subtitle={`₹${analytics.kpis.avgOrderValue} avg value`}
+            subtitle={`₹${analytics.kpis.avgOrderValue.toLocaleString()} avg value`}
             icon={ShoppingCart}
             trend={null}
             color="bg-gray-400"
@@ -417,14 +440,23 @@ const AnalyticsDashboard = () => {
           />
         </div>
 
-        {/* Continue with rest of charts... */}
+        {/* Sales Trend Chart */}
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Sales Trend</h2>
+          <h2 className="text-xl font-bold text-gray-900 mb-4">
+            Sales Trend ({timeRange} Days)
+          </h2>
           {analytics.salesData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+            <ResponsiveContainer width="100%" height={350}>
               <LineChart data={analytics.salesData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" stroke="#765496" style={{ fontSize: '12px' }} />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="#6b7280" 
+                  style={{ fontSize: '12px' }}
+                  angle={timeRange > 30 ? -45 : 0}
+                  textAnchor={timeRange > 30 ? "end" : "middle"}
+                  height={timeRange > 30 ? 80 : 30}
+                />
                 <YAxis stroke="#6b7280" style={{ fontSize: '12px' }} />
                 <Tooltip
                   contentStyle={{
@@ -433,10 +465,25 @@ const AnalyticsDashboard = () => {
                     borderRadius: '8px',
                     padding: '12px'
                   }}
+                  formatter={(value) => `₹${value.toLocaleString()}`}
                 />
                 <Legend />
-                <Line type="monotone" dataKey="revenue" stroke="#765496" strokeWidth={2} name="Revenue (₹)" />
-                <Line type="monotone" dataKey="profit" stroke="#bf5095" strokeWidth={2} name="Profit (₹)" />
+                <Line 
+                  type="monotone" 
+                  dataKey="revenue" 
+                  stroke="#765496" 
+                  strokeWidth={2} 
+                  name="Revenue (₹)"
+                  dot={timeRange <= 30}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="profit" 
+                  stroke="#bf5095" 
+                  strokeWidth={2} 
+                  name="Profit (₹)"
+                  dot={timeRange <= 30}
+                />
               </LineChart>
             </ResponsiveContainer>
           ) : (
@@ -444,7 +491,7 @@ const AnalyticsDashboard = () => {
           )}
         </div>
 
-        {/* Top 5 Products by Profit - NEW BAR CHART */}
+               {/* Top 5 Products by Profit - NEW BAR CHART */}
         {analytics.topProducts && analytics.topProducts.length > 0 && (
           <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100 mb-8">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Top 5 Products by Profit</h2>
@@ -801,8 +848,11 @@ const AnalyticsDashboard = () => {
                 <p className="text-center text-gray-500 py-8">No supplier data available</p>
               )}
             </div>
+
           </div>
         </div>
+
+        {/* Rest of the dashboard remains the same... */}
       </div>
     </div>
   );

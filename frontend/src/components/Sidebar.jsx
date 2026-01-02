@@ -31,6 +31,7 @@ export default function Sidebar() {
     { path: '/AIChatbot', icon: Brain, label: 'AIChatbot' },
     { path: '/ExpenseTracker', icon: TrendingDown, label: 'ExpenseTracker' },
     { path: '/FinancialDashboard', icon: TrendingDown, label: 'FinancialDashboard' },
+    { path: './VoiceSalesComponent', icon: Brain, label: 'VoiceSales'},
   ];
 
   const handleNavigate = (path) => {

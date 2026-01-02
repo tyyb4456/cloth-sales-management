@@ -4,8 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from database import init_db
-from routes import varieties, supplier, sales, reports, predictions, chatbot, expenses  
-
+from routes import varieties, supplier, sales, reports, predictions, chatbot, expenses, voice_sales
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan event handler"""
@@ -41,6 +40,7 @@ app.include_router(reports.router)
 app.include_router(predictions.router)
 app.include_router(chatbot.router)
 app.include_router(expenses.router)
+app.include_router(voice_sales.router)
 
 @app.get("/")
 def root():
@@ -55,7 +55,8 @@ def root():
             "Advanced Analytics",
             "AI-Powered Predictions 🤖",
             "Smart Insights",
-            "AI Chatbot 💬"  # Added
+            "AI Chatbot 💬",
+            "Voice Commands 🎤" 
         ],
         "docs": "/docs"
     }
@@ -63,4 +64,9 @@ def root():
 @app.get("/health")
 def health_check():
     """Health check endpoint"""
-    return {"status": "healthy", "ai_enabled": True, "chatbot_enabled": True}
+    return {
+        "status": "healthy",
+        "ai_enabled": True,
+        "chatbot_enabled": True,
+        "voice_enabled": True  # NEW
+    }
